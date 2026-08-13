@@ -1,0 +1,65 @@
+{{!
+    Training Matrix HCM v1.0.0 - Staff card template
+    
+    @package    local_trainingmatrix
+    @copyright  2025 AI Grader
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+<div class="tm-card tm-staff-card" data-userid="{{userid}}">
+    <div class="tm-card-body">
+        <div class="tm-staff-header" style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+            <div class="tm-avatar" style="width: 48px; height: 48px; border-radius: 50%; background: var(--tm-primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600;">
+                {{initials}}
+            </div>
+            <div class="tm-staff-info">
+                <div style="font-weight: 600; font-size: 16px;">{{fullname}}</div>
+                <div style="color: var(--tm-gray-500); font-size: 13px;">{{position}}</div>
+            </div>
+            <div style="margin-left: auto;">
+                <span class="tm-badge {{statusclass}}">{{statuslabel}}</span>
+            </div>
+        </div>
+        
+        <div class="tm-staff-stats" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; text-align: center;">
+            <div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--tm-success);">{{completed}}</div>
+                <div style="font-size: 11px; color: var(--tm-gray-500);">Completed</div>
+            </div>
+            <div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--tm-info);">{{in_progress}}</div>
+                <div style="font-size: 11px; color: var(--tm-gray-500);">In Progress</div>
+            </div>
+            <div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--tm-warning);">{{expiring}}</div>
+                <div style="font-size: 11px; color: var(--tm-gray-500);">Expiring</div>
+            </div>
+            <div>
+                <div style="font-size: 20px; font-weight: 700; color: var(--tm-danger);">{{expired}}</div>
+                <div style="font-size: 11px; color: var(--tm-gray-500);">Expired</div>
+            </div>
+        </div>
+        
+        {{#showprogress}}
+        <div class="tm-compliance-bar" style="margin-top: 16px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span style="font-size: 13px; color: var(--tm-gray-600);">Compliance</span>
+                <span style="font-size: 13px; font-weight: 600;">{{compliance_rate}}%</span>
+            </div>
+            <div class="tm-progress" style="max-width: none;">
+                <div class="tm-progress-bar {{compliance_class}}" style="width: {{compliance_rate}}%;"></div>
+            </div>
+        </div>
+        {{/showprogress}}
+    </div>
+    
+    <div class="tm-card-footer" style="padding: 12px 24px; border-top: 1px solid var(--tm-gray-200); display: flex; gap: 8px;">
+        <a href="{{viewurl}}" class="tm-btn tm-btn-secondary tm-btn-sm">
+            <i class="fa fa-eye"></i> View Details
+        </a>
+        {{#cansendreminder}}
+        <button class="tm-btn tm-btn-primary tm-btn-sm" data-tm-action="send-reminder" data-userid="{{userid}}">
+            <i class="fa fa-bell"></i> Send Reminder
+        </button>
+        {{/cansendreminder}}
+    </div>
+</div>

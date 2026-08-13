@@ -1,0 +1,52 @@
+{{!
+    Training Matrix HCM v1.0.0 - Compliance table template
+    
+    @package    local_trainingmatrix
+    @copyright  2025 AI Grader
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+<div class="tm-table-container">
+    <table class="tm-table">
+        <thead>
+            <tr>
+                <th class="sortable" data-column="name">{{#str}}competency_name, local_trainingmatrix{{/str}}</th>
+                <th class="sortable" data-column="status">{{#str}}staff_status, local_trainingmatrix{{/str}}</th>
+                <th class="sortable" data-column="expiry">{{#str}}expiry_date, local_trainingmatrix{{/str}}</th>
+                <th>{{#str}}progress, local_trainingmatrix{{/str}}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{#records}}
+            <tr data-status="{{status}}">
+                <td data-sort="name">
+                    {{#code}}<span class="tm-badge info" style="margin-right: 8px;">{{code}}</span>{{/code}}
+                    {{name}}
+                </td>
+                <td data-sort="status">
+                    <span class="tm-badge {{statusclass}}">{{statuslabel}}</span>
+                </td>
+                <td data-sort="expiry">
+                    {{#expirydate}}{{expirydate}}{{/expirydate}}
+                    {{^expirydate}}-{{/expirydate}}
+                </td>
+                <td>
+                    <div class="tm-progress-wrapper" style="display: flex; align-items: center;">
+                        <div class="tm-progress">
+                            <div class="tm-progress-bar {{progressclass}}" style="width: {{progress}}%;"></div>
+                        </div>
+                        <span class="tm-progress-label">{{progress}}%</span>
+                    </div>
+                </td>
+            </tr>
+            {{/records}}
+            {{^records}}
+            <tr>
+                <td colspan="4" class="tm-empty">
+                    <i class="fa fa-certificate tm-empty-icon"></i>
+                    <div class="tm-empty-title">{{#str}}no_competencies, local_trainingmatrix{{/str}}</div>
+                </td>
+            </tr>
+            {{/records}}
+        </tbody>
+    </table>
+</div>

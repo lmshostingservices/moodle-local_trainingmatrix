@@ -1,0 +1,21 @@
+{{!
+    Training Matrix HCM v1.0.0 - Stat card template
+    
+    @package    local_trainingmatrix
+    @copyright  2025 AI Grader
+    @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+<div class="tm-stat-card {{colorclass}}" data-stat-type="{{type}}">
+    <div class="tm-stat-icon {{colorclass}}">
+        <i class="fa {{icon}}"></i>
+    </div>
+    <div class="tm-stat-value" data-stat="{{type}}">{{value}}</div>
+    <div class="tm-stat-label">{{label}}</div>
+    {{#trend}}
+    <div class="tm-stat-trend" style="margin-top: 8px; font-size: 12px;">
+        <i class="fa fa-arrow-{{trend_direction}}" style="color: var(--tm-{{trend_color}});"></i>
+        <span style="color: var(--tm-{{trend_color}});">{{trend_value}}%</span>
+        <span style="color: var(--tm-gray-400);">vs last month</span>
+    </div>
+    {{/trend}}
+</div>

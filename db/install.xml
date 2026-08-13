@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/trainingmatrix/db" VERSION="20251217" COMMENT="Training Matrix HCM tables">
+  <TABLES>
+    <!-- Departments -->
+    <TABLE NAME="local_tm_departments" COMMENT="Organisation departments">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false"/>
+        <FIELD NAME="parentid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Parent department for hierarchy"/>
+        <FIELD NAME="managerid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Department manager user ID"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="parentid" TYPE="foreign" FIELDS="parentid" REFTABLE="local_tm_departments" REFFIELDS="id"/>
+        <KEY NAME="managerid" TYPE="foreign" FIELDS="managerid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+
+    <!-- Positions/Job Roles -->
+    <TABLE NAME="local_tm_positions" COMMENT="Job positions/roles">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false"/>
+        <FIELD NAME="departmentid" TYPE="int" LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="level" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="1" COMMENT="Position level 1-10"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="departmentid" TYPE="foreign" FIELDS="departmentid" REFTABLE="local_tm_departments" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+
+    <!-- Competencies -->
+    <TABLE NAME="local_tm_competencies" COMMENT="Required competencies">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true"/>
+        <FIELD NAME="code" TYPE="char" LENGTH="50" NOTNULL="false" COMMENT="Competency code e.g. WHS001"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false"/>
+        <FIELD NAME="category" TYPE="char" LENGTH="100" NOTNULL="false" COMMENT="e.g. Safety, Technical, Leadership"/>
+        <FIELD NAME="mandatory" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="code" UNIQUE="false" FIELDS="code"/>
+        <INDEX NAME="category" UNIQUE="false" FIELDS="category"/>
+      </INDEXES>
+    </TABLE>
+
+    <!-- Competency to Course Link -->
+    <TABLE NAME="local_tm_comp_courses" COMMENT="Links competencies to Moodle courses">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="competencyid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="expirymonths" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="12" COMMENT="Months until retraining required"/>
+        <FIELD NAME="notifydays" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="30" COMMENT="Days before expiry to notify"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="competencyid" TYPE="foreign" FIELDS="competencyid" REFTABLE="local_tm_competencies" REFFIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="comp_course" UNIQUE="true" FIELDS="competencyid, courseid"/>
+      </INDEXES>
+    </TABLE>
+
+    <!-- Position to Competency Link -->
+    <TABLE NAME="local_tm_pos_comps" COMMENT="Links positions to required competencies">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="positionid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="competencyid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="mandatory" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="positionid" TYPE="foreign" FIELDS="positionid" REFTABLE="local_tm_positions" REFFIELDS="id"/>
+        <KEY NAME="competencyid" TYPE="foreign" FIELDS="competencyid" REFTABLE="local_tm_competencies" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="pos_comp" UNIQUE="true" FIELDS="positionid, competencyid"/>
+      </INDEXES>
+    </TABLE>
+
+    <!-- Staff Assignments -->
+    <TABLE NAME="local_tm_staff" COMMENT="Staff member position assignments">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="positionid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="departmentid" TYPE="int" LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="startdate" TYPE="int" LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="enddate" TYPE="int" LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="active" COMMENT="active, inactive, terminated"/>
+        <FIELD NAME="managerid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Direct manager"/>
+        <FIELD NAME="employeeid" TYPE="char" LENGTH="50" NOTNULL="false" COMMENT="Employee ID number"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="positionid" TYPE="foreign" FIELDS="positionid" REFTABLE="local_tm_positions" REFFIELDS="id"/>
+        <KEY NAME="departmentid" TYPE="foreign" FIELDS="departmentid" REFTABLE="local_tm_departments" REFFIELDS="id"/>
+        <KEY NAME="managerid" TYPE="foreign" FIELDS="managerid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
+        <INDEX NAME="user_pos" UNIQUE="false" FIELDS="userid, positionid"/>
+      </INDEXES>
+    </TABLE>
+
+    <!-- Competency Completion Tracking -->
+    <TABLE NAME="local_tm_completions" COMMENT="Staff competency completion records">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="competencyid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="completiondate" TYPE="int" LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="expirydate" TYPE="int" LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="not_started" COMMENT="not_started, in_progress, completed, expired, expiring_soon"/>
+        <FIELD NAME="progress" TYPE="int" LENGTH="3" NOTNULL="true" DEFAULT="0" COMMENT="0-100 percentage"/>
+        <FIELD NAME="notified" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="Expiry notification sent"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="competencyid" TYPE="foreign" FIELDS="competencyid" REFTABLE="local_tm_competencies" REFFIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="user_comp" UNIQUE="false" FIELDS="userid, competencyid"/>
+        <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
+        <INDEX NAME="expirydate" UNIQUE="false" FIELDS="expirydate"/>
+      </INDEXES>
+    </TABLE>
+
+    <!-- Notification Log -->
+    <TABLE NAME="local_tm_notifications" COMMENT="Notification history">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="completionid" TYPE="int" LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="type" TYPE="char" LENGTH="50" NOTNULL="true" COMMENT="expiry_warning, expired, new_requirement"/>
+        <FIELD NAME="subject" TYPE="char" LENGTH="255" NOTNULL="true"/>
+        <FIELD NAME="message" TYPE="text" NOTNULL="true"/>
+        <FIELD NAME="sent" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timesent" TYPE="int" LENGTH="10" NOTNULL="false"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="completionid" TYPE="foreign" FIELDS="completionid" REFTABLE="local_tm_completions" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+  </TABLES>
+</XMLDB>
