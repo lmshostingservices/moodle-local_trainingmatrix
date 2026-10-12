@@ -41,7 +41,7 @@ class check_expiry extends \core\task\scheduled_task {
         $DB->execute("
             UPDATE {local_tm_completions}
             SET status = 'expired', timemodified = ?
-            WHERE status = 'completed' 
+            WHERE status IN ('completed', 'expiring_soon')
               AND expirydate IS NOT NULL 
               AND expirydate < ?
         ", [$now, $now]);

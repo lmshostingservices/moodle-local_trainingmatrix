@@ -31,7 +31,7 @@ $id = optional_param('id', 0, PARAM_INT);
 if ($action === 'save' && confirm_sesskey()) {
     $data = new stdClass();
     $data->name = required_param('name', PARAM_TEXT);
-    $data->description = optional_param('description', '', PARAM_RAW);
+    $data->description = optional_param('description', '', PARAM_CLEANHTML);
     $data->departmentid = optional_param('departmentid', null, PARAM_INT) ?: null;
     $data->level = optional_param('level', 1, PARAM_INT);
     $data->timemodified = time();
@@ -83,7 +83,7 @@ echo html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' 
 echo html_writer::end_div();
 
 // AI Generation Scripts
-$credits_per_position = (int)(get_config('local_trainingmatrix', 'credits_per_position') ?: 10);
+$credits_per_position = 10; // Fixed owner-approved server tariff.
 $PAGE->requires->js_amd_inline("
 require(['jquery'], function ($) {
     window.tmGenerateCompetencies = function (positionId, positionName) {

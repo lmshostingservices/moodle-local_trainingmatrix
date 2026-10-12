@@ -31,7 +31,7 @@ $id = optional_param('id', 0, PARAM_INT);
 if ($action === 'save' && confirm_sesskey()) {
     $data = new stdClass();
     $data->name = required_param('name', PARAM_TEXT);
-    $data->description = optional_param('description', '', PARAM_RAW);
+    $data->description = optional_param('description', '', PARAM_CLEANHTML);
     $data->parentid = optional_param('parentid', null, PARAM_INT) ?: null;
     $data->managerid = optional_param('managerid', null, PARAM_INT) ?: null;
     $data->sortorder = optional_param('sortorder', 0, PARAM_INT);

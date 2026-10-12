@@ -1,3 +1,15 @@
+## [1.0.18] - 2026-10-12
+
+- Preserve compliance counts after expiry cron, including soon-to-expired transitions.
+- Sync all applicable course-to-competency mappings for active staff.
+- Provision authorised manual course enrolment on staff assignment and position changes.
+- Produce real XLSX exports, consistent department filters and formula-safe cells.
+- Retry failed notification submissions without prematurely marking them sent.
+- Replace the incorrect no-personal-data declaration with privacy discovery/export/deletion.
+- Restrict the learner dashboard to their own requirements; enforce staff mutation capabilities.
+- Add the integrated My Training view for course, pathway and certification evidence.
+- Use Moodle's namespaced external API classes for report exports.
+
 ## [v1.0.3] - 2025-12-23
 
 ### Security

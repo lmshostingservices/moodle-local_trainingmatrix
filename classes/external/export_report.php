@@ -26,8 +26,6 @@ namespace local_trainingmatrix\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->libdir . '/externallib.php');
-
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
@@ -43,7 +41,9 @@ class export_report extends external_api {
     }
 
     public static function execute($format = 'csv', $departmentid = 0, $reporttype = 'compliance') {
-        global $DB;
+        global $DB, $CFG;
+
+        require_once($CFG->dirroot . '/local/trainingmatrix/lib.php');
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'format' => $format,
@@ -54,6 +54,11 @@ class export_report extends external_api {
         $context = \context_system::instance();
         self::validate_context($context);
         require_capability('local/trainingmatrix:viewall', $context);
+
+        if (!in_array($params['format'], ['csv', 'excel'], true) ||
+                !in_array($params['reporttype'], ['compliance', 'staff', 'expiry'], true)) {
+            throw new \invalid_parameter_exception('Unsupported report format or type');
+        }
 
         $rows = [];
         $headers = [];
@@ -102,6 +107,13 @@ class export_report extends external_api {
                 
                 $now = time();
                 $thirtyDays = $now + (30 * 24 * 60 * 60);
+                $filter = '';
+                $filterparams = [$now, $thirtyDays];
+                if ($params['departmentid'] > 0) {
+                    $filter = ' AND EXISTS (SELECT 1 FROM {local_tm_staff} s
+                        WHERE s.userid = tc.userid AND s.departmentid = ?)';
+                    $filterparams[] = $params['departmentid'];
+                }
 
                 $expirations = $DB->get_records_sql("
                     SELECT tc.*, c.name as competency_name, c.code,
@@ -114,8 +126,9 @@ class export_report extends external_api {
                     WHERE tc.status IN ('completed', 'expiring_soon')
                       AND tc.expirydate IS NOT NULL
                       AND tc.expirydate BETWEEN ? AND ?
+                      $filter
                     ORDER BY tc.expirydate ASC
-                ", [$now, $thirtyDays]);
+                ", $filterparams);
 
                 foreach ($expirations as $e) {
                     $daysRemaining = ceil(($e->expirydate - $now) / 86400);
@@ -133,6 +146,8 @@ class export_report extends external_api {
 
             default: // staff
                 $headers = ['Staff Name', 'Email', 'Position', 'Department', 'Status', 'Start Date', 'Employee ID'];
+                $filter = $params['departmentid'] > 0 ? 'WHERE s.departmentid = ?' : '';
+                $filterparams = $params['departmentid'] > 0 ? [$params['departmentid']] : [];
                 
                 $staff = $DB->get_records_sql("
                     SELECT s.*, u.firstname, u.lastname, u.email, p.name as position_name, d.name as department_name
@@ -140,8 +155,9 @@ class export_report extends external_api {
                     JOIN {user} u ON u.id = s.userid
                     LEFT JOIN {local_tm_positions} p ON p.id = s.positionid
                     LEFT JOIN {local_tm_departments} d ON d.id = s.departmentid
+                    $filter
                     ORDER BY u.lastname, u.firstname
-                ");
+                ", $filterparams);
 
                 foreach ($staff as $s) {
                     $rows[] = [
@@ -156,10 +172,46 @@ class export_report extends external_api {
                 }
         }
 
-        // Generate CSV content
+        if ($params['format'] === 'excel') {
+            require_once($CFG->libdir . '/excellib.class.php');
+            $book = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $book->getActiveSheet();
+            $sheet->setTitle('Training Matrix');
+            foreach (array_merge([$headers], $rows) as $rowindex => $row) {
+                foreach ($row as $column => $value) {
+                    $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($column + 1)
+                        . ($rowindex + 1);
+                    // Explicit strings prevent names or other user data becoming formulas.
+                    $sheet->setCellValueExplicit($cell, (string)$value,
+                        \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                }
+            }
+            ob_start();
+            try {
+                $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($book);
+                $writer->save('php://output');
+                $content = ob_get_contents();
+            } finally {
+                ob_end_clean();
+                $book->disconnectWorksheets();
+            }
+            return [
+                'success' => true,
+                'filename' => 'training_matrix_' . $params['reporttype'] . '_' . date('Y-m-d') . '.xlsx',
+                'content' => base64_encode($content),
+                'mimetype' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'rows' => count($rows),
+            ];
+        }
+
+        // Prevent spreadsheet applications interpreting user-controlled CSV cells as formulas.
         $output = fopen('php://temp', 'r+');
         fputcsv($output, $headers);
         foreach ($rows as $row) {
+            $row = array_map(static function ($value) {
+                $value = (string)$value;
+                return preg_match('/^[\s]*[=+@-]|^[\t\r\n]/u', $value) ? "'" . $value : $value;
+            }, $row);
             fputcsv($output, $row);
         }
         rewind($output);
@@ -179,7 +231,7 @@ class export_report extends external_api {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'Success status'),
             'filename' => new external_value(PARAM_TEXT, 'Suggested filename'),
-            'content' => new external_value(PARAM_RAW, 'Base64 encoded file content'),
+            'content' => new external_value(PARAM_TEXT, 'Base64 encoded file content'),
             'mimetype' => new external_value(PARAM_TEXT, 'MIME type'),
             'rows' => new external_value(PARAM_INT, 'Number of data rows'),
         ]);

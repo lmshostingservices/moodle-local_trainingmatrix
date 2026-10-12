@@ -61,11 +61,9 @@ if ($hassiteconfig) {
         get_string('credits_settings_desc', 'local_trainingmatrix')
     ));
 
-    $settings->add(new admin_setting_configtext(
-        'local_trainingmatrix/credits_per_position',
+    $settings->add(new admin_setting_heading(
+        'local_trainingmatrix/approved_tariff',
         get_string('credits_per_position', 'local_trainingmatrix'),
-        get_string('credits_per_position_desc', 'local_trainingmatrix'),
-        '10',
-        PARAM_INT
+        '10 credits per position generation. Enforced by the LMS Labs server.'
     ));
 }

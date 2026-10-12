@@ -171,7 +171,7 @@ switch ($reportType) {
             FROM {local_tm_completions} tc
             JOIN {local_tm_competencies} c ON c.id = tc.competencyid
             JOIN {user} u ON u.id = tc.userid
-            WHERE tc.status = 'completed' AND tc.expirydate IS NOT NULL AND tc.expirydate < ?
+            WHERE tc.status IN ('completed', 'expiring_soon', 'expired') AND tc.expirydate IS NOT NULL AND tc.expirydate < ?
             ORDER BY tc.expirydate ASC
         ", [$now]);
         
@@ -181,7 +181,7 @@ switch ($reportType) {
             FROM {local_tm_completions} tc
             JOIN {local_tm_competencies} c ON c.id = tc.competencyid
             JOIN {user} u ON u.id = tc.userid
-            WHERE tc.status = 'completed' AND tc.expirydate IS NOT NULL AND tc.expirydate BETWEEN ? AND ?
+            WHERE tc.status IN ('completed', 'expiring_soon', 'expired') AND tc.expirydate IS NOT NULL AND tc.expirydate BETWEEN ? AND ?
             ORDER BY tc.expirydate ASC
         ", [$now, $thirtyDays]);
         

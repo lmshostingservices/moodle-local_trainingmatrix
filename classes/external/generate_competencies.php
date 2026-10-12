@@ -61,7 +61,8 @@ class generate_competencies extends external_api {
         $apibase = rtrim($apibase, '/');
         $siteid = trim(get_config('local_trainingmatrix', 'siteid') ?? '');
         $apikey = trim(get_config('local_trainingmatrix', 'apikey') ?? '');
-        $credits_per_position = (int)(get_config('local_trainingmatrix', 'credits_per_position') ?: 10);
+        // Owner-approved fixed server tariff; local settings cannot override it.
+        $credits_per_position = 10;
 
         if (strlen($siteid) === 0 || strlen($apikey) === 0) {
             return [
@@ -86,7 +87,7 @@ class generate_competencies extends external_api {
         $creditData = json_decode($creditResponse, true);
         $availableCredits = $creditData['credits'] ?? 0;
 
-        if ($availableCredits < $credits_per_position) {
+        if ((int)$availableCredits !== -1 && $availableCredits < $credits_per_position) {
             return [
                 'success' => false,
                 'message' => get_string('insufficient_credits', 'local_trainingmatrix', [
@@ -117,6 +118,8 @@ class generate_competencies extends external_api {
             'siteId' => $siteid,
             'apiKey' => $apikey,
             'prompt' => $prompt,
+            // Same position and input reuse the same durable request after timeouts.
+            'requestId' => hash('sha256', $position->id . ':' . $prompt),
             'plugin' => 'trainingmatrix',
             'action' => 'generate_competencies',
             'credits' => $credits_per_position,

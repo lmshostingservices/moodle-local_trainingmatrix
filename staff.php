@@ -33,6 +33,9 @@ $context = context_system::instance();
 require_capability('local/trainingmatrix:view', $context);
 
 $staff = $DB->get_record('local_tm_staff', ['id' => $id], '*', MUST_EXIST);
+if ((int)$staff->userid !== (int)$USER->id) {
+    require_capability('local/trainingmatrix:viewall', $context);
+}
 $user = $DB->get_record('user', ['id' => $staff->userid], '*', MUST_EXIST);
 $position = $DB->get_record('local_tm_positions', ['id' => $staff->positionid]);
 $department = $staff->departmentid ? $DB->get_record('local_tm_departments', ['id' => $staff->departmentid]) : null;

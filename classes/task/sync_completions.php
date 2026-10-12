@@ -79,7 +79,12 @@ class sync_completions extends \core\task\scheduled_task {
                     if ($tmCompletion) {
                         // Update existing
                         if ($tmCompletion->completiondate != $completion->timecompleted ||
+                            $tmCompletion->expirydate != $expiryDate ||
                             $tmCompletion->status != $status) {
+                            if ($tmCompletion->completiondate != $completion->timecompleted ||
+                                    $tmCompletion->expirydate != $expiryDate) {
+                                $tmCompletion->notified = 0;
+                            }
                             $tmCompletion->completiondate = $completion->timecompleted;
                             $tmCompletion->expirydate = $expiryDate;
                             $tmCompletion->status = $status;

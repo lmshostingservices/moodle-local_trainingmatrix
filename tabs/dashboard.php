@@ -24,6 +24,22 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// A normal learner must never receive site-wide staff statistics or expiry rows.
+if (!has_capability('local/trainingmatrix:viewall', context_system::instance())) {
+    $compliance = local_trainingmatrix_get_staff_compliance($USER->id);
+    if (!$compliance) {
+        echo html_writer::tag('p', get_string('no_position_assigned', 'local_trainingmatrix'));
+        return;
+    }
+    $table = new html_table();
+    $table->head = [get_string('competencies', 'local_trainingmatrix'), get_string('status')];
+    foreach ($compliance['competencies'] as $competency) {
+        $table->data[] = [format_string($competency->name), s($competency->status)];
+    }
+    echo html_writer::table($table);
+    return;
+}
+
 $stats = local_trainingmatrix_get_compliance_stats();
 
 echo html_writer::start_div('tm-dashboard tm-animate-in');
@@ -113,7 +129,7 @@ $upcomingExpirations = $DB->get_records_sql("
     FROM {local_tm_completions} tc
     JOIN {local_tm_competencies} c ON c.id = tc.competencyid
     JOIN {user} u ON u.id = tc.userid
-    WHERE tc.status = 'completed' 
+    WHERE tc.status IN ('completed', 'expiring_soon', 'expired')
       AND tc.expirydate IS NOT NULL 
       AND tc.expirydate BETWEEN ? AND ?
     ORDER BY tc.expirydate ASC
@@ -146,7 +162,7 @@ if (empty($upcomingExpirations)) {
         echo html_writer::start_tag('tr');
         echo html_writer::tag('td', 
             html_writer::tag('strong', $exp->firstname . ' ' . $exp->lastname) . 
-            html_writer::tag('br') .
+            html_writer::empty_tag('br') .
             html_writer::tag('span', $exp->email, ['style' => 'color: var(--tm-gray-500); font-size: 12px;'])
         );
         echo html_writer::tag('td', 

@@ -26,8 +26,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_trainingmatrix';
-$plugin->version   = 2026072300;
-$plugin->requires  = 2022041900; // Moodle 4.0+
-$plugin->supported  = [400, 500];  // Moodle 4.0 to 5.x
+$plugin->version   = 2026101201;
+$plugin->requires  = 2024042200; // Moodle 4.4.
+$plugin->supported = [404, 502]; // Training-suite target range; see the acceptance report.
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.0.17'; // FIX-CURL-BATCH: ajax.php and generate_competencies.php switched from raw curl_init() to Moodle \curl wrapper + write_close(). No DB schema changes.
+$plugin->release   = '1.0.18';

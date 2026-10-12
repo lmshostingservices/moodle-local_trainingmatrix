@@ -28,7 +28,7 @@ require_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/lib.php');
 
 $action = required_param('action', PARAM_ALPHA);
-$sesskey = required_param('sesskey', PARAM_RAW);
+$sesskey = required_param('sesskey', PARAM_ALPHANUM);
 
 if (!confirm_sesskey($sesskey)) {
     header('Content-Type: application/json');
@@ -66,7 +66,7 @@ if (empty($siteid)) {
 if (empty($apikey)) {
     $apikey = trim(get_config('local_trainingmatrix', 'apikey') ?? '');
 }
-$credits_per_position = (int)(get_config('local_trainingmatrix', 'credits_per_position') ?: 10);
+$credits_per_position = 10; // Fixed owner-approved server tariff.
 
 // Release session lock before long-running API calls to prevent blocking other requests.
 \core\session\manager::write_close();
@@ -135,7 +135,7 @@ switch ($action) {
         $creditData = json_decode($creditResponse, true);
         $availableCredits = $creditData['credits'] ?? 0;
 
-        if ($availableCredits < $credits_per_position) {
+        if ((int)$availableCredits !== -1 && $availableCredits < $credits_per_position) {
             echo json_encode([
                 'ok' => false,
                 'error' => get_string('insufficient_credits', 'local_trainingmatrix', [
@@ -163,6 +163,7 @@ switch ($action) {
             'siteId' => $siteid,
             'apiKey' => $apikey,
             'prompt' => $prompt,
+            'requestId' => hash('sha256', $position->id . ':' . $prompt),
             'plugin' => 'trainingmatrix',
             'action' => 'generate_competencies',
             'credits' => $credits_per_position,

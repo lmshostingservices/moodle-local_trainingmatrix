@@ -32,7 +32,7 @@ if ($action === 'save' && confirm_sesskey()) {
     $data = new stdClass();
     $data->name = required_param('name', PARAM_TEXT);
     $data->code = optional_param('code', '', PARAM_ALPHANUMEXT);
-    $data->description = optional_param('description', '', PARAM_RAW);
+    $data->description = optional_param('description', '', PARAM_CLEANHTML);
     $data->category = optional_param('category', '', PARAM_TEXT);
     $data->mandatory = optional_param('mandatory', 0, PARAM_INT);
     $data->timemodified = time();

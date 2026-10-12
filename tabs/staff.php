@@ -33,6 +33,7 @@ $search = optional_param('search', '', PARAM_TEXT);
 
 // Handle form submissions
 if ($action === 'save' && confirm_sesskey()) {
+    require_capability('local/trainingmatrix:assign', $context);
     $data = new stdClass();
     $data->userid = required_param('userid', PARAM_INT);
     $data->positionid = required_param('positionid', PARAM_INT);
@@ -48,6 +49,12 @@ if ($action === 'save' && confirm_sesskey()) {
     $data->enddate = $enddate ? strtotime($enddate) : null;
     
     $data->timemodified = time();
+    if (!in_array($data->status, ['active', 'inactive', 'terminated'], true)) {
+        throw new invalid_parameter_exception('Invalid staff status');
+    }
+    $DB->get_record('local_tm_positions', ['id' => $data->positionid], '*', MUST_EXIST);
+    $DB->get_record('user', ['id' => $data->userid, 'deleted' => 0, 'suspended' => 0], '*', MUST_EXIST);
+    $transaction = $DB->start_delegated_transaction();
     
     if ($id > 0) {
         $data->id = $id;
@@ -55,49 +62,18 @@ if ($action === 'save' && confirm_sesskey()) {
     } else {
         $data->timecreated = time();
         $id = $DB->insert_record('local_tm_staff', $data);
-        
-        // Auto-enrol in required courses
-        $position = $DB->get_record('local_tm_positions', ['id' => $data->positionid]);
-        if ($position) {
-            $requiredCourses = $DB->get_records_sql("
-                SELECT cc.courseid, c.name as competency_name
-                FROM {local_tm_pos_comps} pc
-                JOIN {local_tm_comp_courses} cc ON cc.competencyid = pc.competencyid
-                JOIN {local_tm_competencies} c ON c.id = pc.competencyid
-                WHERE pc.positionid = ?
-            ", [$data->positionid]);
-            
-            foreach ($requiredCourses as $rc) {
-                // Create completion tracking record
-                $comp = $DB->get_record('local_tm_comp_courses', ['courseid' => $rc->courseid]);
-                if ($comp) {
-                    $existing = $DB->get_record('local_tm_completions', [
-                        'userid' => $data->userid,
-                        'competencyid' => $comp->competencyid,
-                        'courseid' => $rc->courseid,
-                    ]);
-                    
-                    if (!$existing) {
-                        $tc = new stdClass();
-                        $tc->userid = $data->userid;
-                        $tc->competencyid = $comp->competencyid;
-                        $tc->courseid = $rc->courseid;
-                        $tc->status = 'not_started';
-                        $tc->progress = 0;
-                        $tc->timecreated = time();
-                        $tc->timemodified = time();
-                        $DB->insert_record('local_tm_completions', $tc);
-                    }
-                }
-            }
-        }
     }
+    if ($data->status === 'active') {
+        local_trainingmatrix_assign_required_courses((int)$data->userid, (int)$data->positionid);
+    }
+    $transaction->allow_commit();
     
     redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff']),
         get_string('staff_saved', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
 }
 
 if ($action === 'delete' && $id > 0 && confirm_sesskey()) {
+    require_capability('local/trainingmatrix:assign', $context);
     $staff = $DB->get_record('local_tm_staff', ['id' => $id]);
     if ($staff) {
         $DB->delete_records('local_tm_completions', ['userid' => $staff->userid]);

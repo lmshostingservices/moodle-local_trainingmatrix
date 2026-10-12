@@ -35,6 +35,13 @@ function local_trainingmatrix_extend_navigation(global_navigation $nav) {
     if (!has_capability('local/trainingmatrix:view', $context)) {
         return;
     }
+    $nav->add(
+        get_string('learner_mytraining', 'local_trainingmatrix'),
+        new moodle_url('/local/trainingmatrix/my.php'),
+        navigation_node::TYPE_CUSTOM,
+        null,
+        'local_trainingmatrix_mytraining'
+    );
 }
 
 function local_trainingmatrix_extend_settings_navigation(settings_navigation $nav, context $context) {
@@ -123,7 +130,7 @@ function local_trainingmatrix_get_staff_compliance($userid) {
         } else {
             $comp->progress = $comp->completion->progress;
 
-            if ($comp->completion->status === 'completed') {
+            if (in_array($comp->completion->status, ['completed', 'expired', 'expiring_soon'], true)) {
                 if ($comp->completion->expirydate && $comp->completion->expirydate < $now) {
                     $comp->status = 'expired';
                     $stats['expired']++;
@@ -157,11 +164,75 @@ function local_trainingmatrix_get_staff_compliance($userid) {
     ];
 }
 
+/**
+ * Provision required course access without reactivating suspended enrolments.
+ *
+ * Call inside the staff-assignment transaction so failure does not save a partial assignment.
+ *
+ * @param int $userid Learner.
+ * @param int $positionid Assigned position.
+ */
+function local_trainingmatrix_assign_required_courses(int $userid, int $positionid): void {
+    global $DB, $CFG;
+    require_once($CFG->libdir . '/enrollib.php');
+    require_capability('local/trainingmatrix:assign', context_system::instance());
+    $links = $DB->get_records_sql("
+        SELECT cc.* FROM {local_tm_comp_courses} cc
+        JOIN {local_tm_pos_comps} pc ON pc.competencyid = cc.competencyid
+        WHERE pc.positionid = ?", [$positionid]);
+    $courses = [];
+    foreach ($links as $link) {
+        $courses[$link->courseid] = $link->courseid;
+    }
+    foreach ($courses as $courseid) {
+        $context = context_course::instance($courseid);
+        if (is_enrolled($context, $userid, '', true)) {
+            continue;
+        }
+        if (is_enrolled($context, $userid, '', false)) {
+            throw new moodle_exception('assignment_access_blocked', 'local_trainingmatrix', '', $courseid);
+        }
+        require_capability('enrol/manual:enrol', $context);
+        $manual = null;
+        foreach (enrol_get_instances($courseid, true) as $instance) {
+            if (in_array($instance->enrol, ['prerequisite', 'prereq2'], true)) {
+                throw new moodle_exception('assignment_access_blocked', 'local_trainingmatrix', '', $courseid);
+            }
+            if ($instance->enrol === 'manual') {
+                $manual = $instance;
+            }
+        }
+        $plugin = enrol_get_plugin('manual');
+        if (!$manual || !$plugin || !$plugin->allow_enrol($manual) || empty($manual->roleid)) {
+            throw new moodle_exception('assignment_access_blocked', 'local_trainingmatrix', '', $courseid);
+        }
+        $plugin->enrol_user($manual, $userid, $manual->roleid, time());
+    }
+    foreach ($links as $link) {
+        $key = ['userid' => $userid, 'competencyid' => $link->competencyid, 'courseid' => $link->courseid];
+        if (!$DB->record_exists('local_tm_completions', $key)) {
+            $DB->insert_record('local_tm_completions', (object)($key + [
+                'status' => 'not_started', 'progress' => 0, 'timecreated' => time(), 'timemodified' => time(),
+            ]));
+        }
+    }
+    foreach ($courses as $courseid) {
+        local_trainingmatrix_sync_course_completion($courseid, $userid);
+    }
+}
+
 function local_trainingmatrix_sync_course_completion($courseid, $userid) {
     global $DB;
 
-    $compCourse = $DB->get_record('local_tm_comp_courses', ['courseid' => $courseid]);
-    if (!$compCourse) {
+    // Match the scheduled sync's active-staff and position-requirement scope.
+    $mappings = $DB->get_records_sql("
+        SELECT DISTINCT cc.*
+        FROM {local_tm_comp_courses} cc
+        JOIN {local_tm_pos_comps} pc ON pc.competencyid = cc.competencyid
+        JOIN {local_tm_staff} s ON s.positionid = pc.positionid
+        WHERE cc.courseid = ? AND s.userid = ? AND s.status = 'active'
+    ", [$courseid, $userid]);
+    if (!$mappings) {
         return false;
     }
 
@@ -174,30 +245,35 @@ function local_trainingmatrix_sync_course_completion($courseid, $userid) {
         return false;
     }
 
-    $expiryDate = $completion->timecompleted + ($compCourse->expirymonths * 30 * 24 * 60 * 60);
-
-    $existing = $DB->get_record('local_tm_completions', [
-        'userid' => $userid,
-        'competencyid' => $compCourse->competencyid,
-        'courseid' => $courseid,
-    ]);
-
-    $record = new stdClass();
-    $record->userid = $userid;
-    $record->competencyid = $compCourse->competencyid;
-    $record->courseid = $courseid;
-    $record->completiondate = $completion->timecompleted;
-    $record->expirydate = $expiryDate;
-    $record->status = 'completed';
-    $record->progress = 100;
-    $record->timemodified = time();
-
-    if ($existing) {
-        $record->id = $existing->id;
-        $DB->update_record('local_tm_completions', $record);
-    } else {
-        $record->timecreated = time();
-        $DB->insert_record('local_tm_completions', $record);
+    foreach ($mappings as $compCourse) {
+        $expirydate = $completion->timecompleted + ($compCourse->expirymonths * 30 * 24 * 60 * 60);
+        $existing = $DB->get_record('local_tm_completions', [
+            'userid' => $userid,
+            'competencyid' => $compCourse->competencyid,
+            'courseid' => $courseid,
+        ]);
+        $now = time();
+        $record = new stdClass();
+        $record->userid = $userid;
+        $record->competencyid = $compCourse->competencyid;
+        $record->courseid = $courseid;
+        $record->completiondate = $completion->timecompleted;
+        $record->expirydate = $expirydate;
+        $record->status = $expirydate < $now ? 'expired' :
+            ($expirydate < $now + 30 * DAYSECS ? 'expiring_soon' : 'completed');
+        $record->progress = 100;
+        $record->timemodified = $now;
+        if ($existing) {
+            $record->id = $existing->id;
+            if ($existing->completiondate != $record->completiondate || $existing->expirydate != $expirydate) {
+                $record->notified = 0;
+            }
+            $DB->update_record('local_tm_completions', $record);
+        } else {
+            $record->timecreated = $now;
+            $record->notified = 0;
+            $DB->insert_record('local_tm_completions', $record);
+        }
     }
 
     return true;
@@ -226,15 +302,12 @@ function local_trainingmatrix_get_compliance_stats() {
         if ($compliance && $compliance['stats']['compliance_rate'] == 100 && $compliance['stats']['expired'] == 0) {
             $stats['fully_compliant']++;
         }
+        if ($compliance) {
+            foreach (['expired', 'expiring_soon', 'in_progress', 'not_started'] as $status) {
+                $stats[$status] += $compliance['stats'][$status];
+            }
+        }
     }
-
-    $stats['expiring_soon'] = $DB->count_records_select('local_tm_completions',
-        "status = 'completed' AND expirydate IS NOT NULL AND expirydate BETWEEN ? AND ?",
-        [$now, $soonThreshold]);
-
-    $stats['expired'] = $DB->count_records_select('local_tm_completions',
-        "status = 'completed' AND expirydate IS NOT NULL AND expirydate < ?",
-        [$now]);
 
     return $stats;
 }

@@ -205,6 +205,10 @@ $string['task_sync_completions'] = 'Sync course completions';
 $string['privacy:metadata:local_tm_staff'] = 'Staff position assignments';
 $string['privacy:metadata:local_tm_completions'] = 'Training completion records';
 $string['privacy:metadata:local_tm_notifications'] = 'Notification history';
+$string['no_position_assigned'] = 'You are not assigned to a position.';
+$string['assignment_access_blocked'] = 'Cannot automatically grant access to course {$a}. Check suspended enrolments, prerequisites and the manual enrolment method. The staff assignment was not saved.';
+$string['privacy:metadata:local_tm_departments'] = 'Department manager assignments';
+$string['privacy:metadata:field'] = 'An identifier, assignment detail, training outcome, notification or timestamp associated with the user.';
 
 // AI Settings
 $string['api_settings'] = 'AI API Settings';
@@ -230,3 +234,32 @@ $string['credits_available'] = 'Credits available';
 $string['credits_required'] = 'Credits required';
 $string['confirm_ai_generate'] = 'This will use {$a} credits to generate competencies for this position. Continue?';
 $string['no_credits_info'] = 'Configure API settings in plugin settings to enable AI generation.';
+
+// Read-only unified learner presentation.
+$string['learner_mytraining'] = 'My Training';
+$string['learner_intro'] = 'Your courses, programs, certifications and certificate documents in one place. Due dates and expiry dates are shown separately.';
+$string['learner_filtertraining'] = 'Filter my training';
+$string['learner_search'] = 'Search training';
+$string['learner_searchhelp'] = 'Search by name, source or status.';
+$string['learner_kind'] = 'Type';
+$string['learner_allkinds'] = 'All types';
+$string['learner_applyfilters'] = 'Apply filters';
+$string['learner_clearfilters'] = 'Clear filters';
+$string['learner_course'] = 'Course';
+$string['learner_program'] = 'Program';
+$string['learner_certification'] = 'Certification';
+$string['learner_certificate'] = 'Certificate document';
+$string['learner_name'] = 'Name';
+$string['learner_source'] = 'Source';
+$string['learner_status'] = 'Status';
+$string['learner_due'] = 'Due date';
+$string['learner_expires'] = 'Expiry date';
+$string['learner_action'] = 'Next action';
+$string['learner_nodate'] = 'Not set';
+$string['learner_noaction'] = 'No action listed';
+$string['learner_traininglist'] = 'Your training and certificate documents';
+$string['learner_empty'] = 'No training or certificate documents are available to display yet. Your course enrolments will appear here even if you do not have a Matrix position.';
+$string['learner_noresults'] = 'No training matches these filters. Try another search or clear the filters to see all your training.';
+$string['learner_resultcount'] = 'Showing {$a->start}–{$a->end} of {$a->total} items';
+$string['learner_priorityintro'] = 'Up to five items, with next actions and earliest due dates shown first.';
+$string['learner_viewall'] = 'View all my training';

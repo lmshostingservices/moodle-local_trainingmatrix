@@ -47,7 +47,11 @@ class send_notifications extends \core\task\scheduled_task {
             JOIN {local_tm_comp_courses} cc ON cc.competencyid = c.id AND cc.courseid = tc.courseid
             JOIN {course} course ON course.id = tc.courseid
             JOIN {user} u ON u.id = tc.userid
+            JOIN {local_tm_staff} s ON s.userid = tc.userid AND s.status = 'active'
+            JOIN {local_tm_pos_comps} pc ON pc.positionid = s.positionid AND pc.competencyid = tc.competencyid
             WHERE tc.notified = 0
+              AND u.deleted = 0 AND u.suspended = 0
+              AND tc.status IN ('completed', 'expiring_soon')
               AND tc.expirydate IS NOT NULL
               AND tc.expirydate > ?
               AND tc.expirydate <= (? + (cc.notifydays * 86400))
@@ -55,13 +59,19 @@ class send_notifications extends \core\task\scheduled_task {
 
         $count = 0;
         foreach ($expiringCompletions as $tc) {
+            $factory = \core\lock\lock_config::get_lock_factory('local_trainingmatrix');
+            $lock = $factory->get_lock('expiry_notification_' . $tc->id, 0);
+            if (!$lock) {
+                continue;
+            }
+            try {
+            // The query above may predate another worker's successful send.
+            if ($DB->get_field('local_tm_completions', 'notified', ['id' => $tc->id])) {
+                continue;
+            }
             $daysUntilExpiry = ceil(($tc->expirydate - $now) / 86400);
 
-            $user = new \stdClass();
-            $user->id = $tc->userid;
-            $user->email = $tc->email;
-            $user->firstname = $tc->firstname;
-            $user->lastname = $tc->lastname;
+            $user = \core_user::get_user($tc->userid, '*', MUST_EXIST);
 
             $a = new \stdClass();
             $a->competency = $tc->competency_name;
@@ -79,21 +89,49 @@ class send_notifications extends \core\task\scheduled_task {
             $notification->type = 'expiry_warning';
             $notification->subject = $subject;
             $notification->message = $message;
-            $notification->sent = 1;
+            $notification->sent = 0;
             $notification->timecreated = $now;
-            $notification->timesent = $now;
-            $DB->insert_record('local_tm_notifications', $notification);
+            $notification->timesent = 0;
+            $pending = $DB->get_record('local_tm_notifications', [
+                'completionid' => $tc->id, 'type' => 'expiry_warning', 'sent' => 0,
+            ], '*', IGNORE_MULTIPLE);
+            if ($pending) {
+                $notification->id = $pending->id;
+                $DB->update_record('local_tm_notifications', $notification);
+            } else {
+                $notification->id = $DB->insert_record('local_tm_notifications', $notification);
+            }
 
-            // Mark completion as notified
+            if (!$this->send_email($user, $subject, $message)) {
+                mtrace("Training expiry notification failed for completion {$tc->id}; retained for retry.");
+                continue;
+            }
+
+            // Transport acceptance is not proof of final mailbox delivery.
+            $notification->sent = 1;
+            $notification->timesent = time();
+            $transaction = $DB->start_delegated_transaction();
+            $DB->update_record('local_tm_notifications', $notification);
             $DB->set_field('local_tm_completions', 'notified', 1, ['id' => $tc->id]);
-
-            // Send email
-            $admin = get_admin();
-            email_to_user($user, $admin, $subject, $message);
-
+            $transaction->allow_commit();
             $count++;
+            } finally {
+                $lock->release();
+            }
         }
 
         mtrace("Sent $count training expiry notifications.");
+    }
+
+    /**
+     * Isolated transport boundary for deterministic failure tests.
+     *
+     * @param \stdClass $user Recipient.
+     * @param string $subject Subject.
+     * @param string $message Body.
+     * @return bool Whether Moodle accepted the send.
+     */
+    protected function send_email(\stdClass $user, string $subject, string $message): bool {
+        return email_to_user($user, get_admin(), $subject, $message);
     }
 }

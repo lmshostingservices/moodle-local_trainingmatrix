@@ -24,10 +24,113 @@
 
 namespace local_trainingmatrix\privacy;
 
-use core_privacy\local\metadata\null_provider;
+use core_privacy\local\metadata\collection;
+use core_privacy\local\request\approved_contextlist;
+use core_privacy\local\request\approved_userlist;
+use core_privacy\local\request\contextlist;
+use core_privacy\local\request\userlist;
+use core_privacy\local\request\writer;
 
-class provider implements null_provider {
-    public static function get_reason(): string {
-        return 'privacy:metadata';
+class provider implements \core_privacy\local\metadata\provider,
+        \core_privacy\local\request\plugin\provider,
+        \core_privacy\local\request\core_userlist_provider {
+    private const FIELDS = [
+        'local_tm_staff' => ['userid', 'positionid', 'departmentid', 'startdate', 'enddate',
+            'status', 'managerid', 'employeeid', 'timecreated', 'timemodified'],
+        'local_tm_completions' => ['userid', 'competencyid', 'courseid', 'completiondate',
+            'expirydate', 'status', 'progress', 'notified', 'timecreated', 'timemodified'],
+        'local_tm_notifications' => ['userid', 'completionid', 'type', 'subject', 'message',
+            'sent', 'timecreated', 'timesent'],
+    ];
+
+    public static function get_metadata(collection $collection): collection {
+        foreach (self::FIELDS as $table => $fields) {
+            $collection->add_database_table($table,
+                array_fill_keys($fields, 'privacy:metadata:field'), 'privacy:metadata:' . $table);
+        }
+        $collection->add_database_table('local_tm_departments',
+            ['managerid' => 'privacy:metadata:field'], 'privacy:metadata:local_tm_departments');
+        return $collection;
+    }
+
+    public static function get_contexts_for_userid(int $userid): contextlist {
+        global $DB;
+        $contexts = new contextlist();
+        foreach (self::FIELDS as $table => $fields) {
+            if ($DB->record_exists($table, ['userid' => $userid])) {
+                $contexts->add_system_context();
+                return $contexts;
+            }
+        }
+        if ($DB->record_exists('local_tm_staff', ['managerid' => $userid]) ||
+                $DB->record_exists('local_tm_departments', ['managerid' => $userid])) {
+            $contexts->add_system_context();
+        }
+        return $contexts;
+    }
+
+    public static function get_users_in_context(userlist $userlist): void {
+        if ($userlist->get_context()->contextlevel !== CONTEXT_SYSTEM) {
+            return;
+        }
+        foreach (self::FIELDS as $table => $fields) {
+            $userlist->add_from_sql('userid', "SELECT userid FROM {{$table}}", []);
+        }
+        foreach (['local_tm_staff', 'local_tm_departments'] as $table) {
+            $userlist->add_from_sql('managerid', "SELECT managerid FROM {{$table}} WHERE managerid > 0", []);
+        }
+    }
+
+    public static function export_user_data(approved_contextlist $contexts): void {
+        global $DB;
+        if (!in_array(\context_system::instance()->id, $contexts->get_contextids())) {
+            return;
+        }
+        $userid = $contexts->get_user()->id;
+        $data = new \stdClass();
+        foreach (self::FIELDS as $table => $fields) {
+            $data->$table = array_values($DB->get_records($table, ['userid' => $userid]));
+        }
+        // Export only the manager's relationship, not other employees' private records.
+        $data->managedstaff = array_values($DB->get_records('local_tm_staff',
+            ['managerid' => $userid], '', 'id, userid, managerid'));
+        $data->manageddepartments = array_values($DB->get_records('local_tm_departments',
+            ['managerid' => $userid], '', 'id, managerid'));
+        writer::with_context(\context_system::instance())->export_data(
+            [get_string('pluginname', 'local_trainingmatrix')], $data);
+    }
+
+    public static function delete_data_for_all_users_in_context(\context $context): void {
+        global $DB;
+        if ($context->contextlevel !== CONTEXT_SYSTEM) {
+            return;
+        }
+        foreach (array_reverse(array_keys(self::FIELDS)) as $table) {
+            $DB->delete_records($table);
+        }
+        $DB->set_field('local_tm_departments', 'managerid', null);
+    }
+
+    public static function delete_data_for_user(approved_contextlist $contexts): void {
+        if (in_array(\context_system::instance()->id, $contexts->get_contextids())) {
+            self::delete_user((int)$contexts->get_user()->id);
+        }
+    }
+
+    public static function delete_data_for_users(approved_userlist $users): void {
+        if ($users->get_context()->contextlevel === CONTEXT_SYSTEM) {
+            foreach ($users->get_userids() as $userid) {
+                self::delete_user((int)$userid);
+            }
+        }
+    }
+
+    private static function delete_user(int $userid): void {
+        global $DB;
+        foreach (array_reverse(array_keys(self::FIELDS)) as $table) {
+            $DB->delete_records($table, ['userid' => $userid]);
+        }
+        $DB->set_field('local_tm_staff', 'managerid', null, ['managerid' => $userid]);
+        $DB->set_field('local_tm_departments', 'managerid', null, ['managerid' => $userid]);
     }
 }
