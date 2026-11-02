@@ -71,8 +71,8 @@ function local_trainingmatrix_myprofile_navigation(core_user\output\myprofile\tr
         return;
     }
 
-    $staff = $DB->get_record('local_tm_staff', ['userid' => $user->id, 'status' => 'active']);
-    if ($staff) {
+    $staff = $DB->get_record('local_tm_staff', ['userid' => $user->id, 'status' => 'active'], '*', IGNORE_MULTIPLE);
+    if ($staff && ($iscurrentuser || has_capability('local/trainingmatrix:viewall', $context))) {
         $url = new moodle_url('/local/trainingmatrix/staff.php', ['id' => $staff->id]);
         $node = new core_user\output\myprofile\node('miscellaneous', 'trainingmatrix',
             get_string('trainingmatrix', 'local_trainingmatrix'), null, $url);
@@ -83,7 +83,7 @@ function local_trainingmatrix_myprofile_navigation(core_user\output\myprofile\tr
 function local_trainingmatrix_get_staff_compliance($userid) {
     global $DB;
 
-    $staff = $DB->get_record('local_tm_staff', ['userid' => $userid, 'status' => 'active']);
+    $staff = $DB->get_record('local_tm_staff', ['userid' => $userid, 'status' => 'active'], '*', IGNORE_MULTIPLE);
     if (!$staff) {
         return null;
     }
@@ -101,10 +101,18 @@ function local_trainingmatrix_get_staff_compliance($userid) {
         ORDER BY c.category, c.name
     ", [$staff->positionid]);
 
+    // When a competency has more than one tracking row (one per linked course), the best row wins rather
+    // than whichever row the database happens to return last.
     $completions = $DB->get_records('local_tm_completions', ['userid' => $userid]);
+    $rank = ['completed' => 4, 'expiring_soon' => 3, 'expired' => 2, 'in_progress' => 1, 'not_started' => 0];
     $completionsByComp = [];
     foreach ($completions as $c) {
-        $completionsByComp[$c->competencyid] = $c;
+        $prev = $completionsByComp[$c->competencyid] ?? null;
+        $crank = $rank[$c->status] ?? 0;
+        $prank = $prev ? ($rank[$prev->status] ?? 0) : -1;
+        if (!$prev || $crank > $prank || ($crank === $prank && (int)$c->expirydate > (int)$prev->expirydate)) {
+            $completionsByComp[$c->competencyid] = $c;
+        }
     }
 
     $stats = [
@@ -151,6 +159,7 @@ function local_trainingmatrix_get_staff_compliance($userid) {
             }
         }
     }
+    unset($comp);
 
     if ($stats['total'] > 0) {
         $stats['compliance_rate'] = round(($stats['completed'] / $stats['total']) * 100);
@@ -221,6 +230,38 @@ function local_trainingmatrix_assign_required_courses(int $userid, int $position
     }
 }
 
+/**
+ * Expiry timestamp for a completion, using calendar months. Zero months means the competency never expires.
+ *
+ * @param int $completed Completion time.
+ * @param int $months Validity in months.
+ * @return int|null Expiry time or null when it does not expire.
+ */
+function local_trainingmatrix_expiry_date(int $completed, int $months): ?int {
+    if ($months <= 0 || $completed <= 0) {
+        return null;
+    }
+    $date = (new DateTimeImmutable('@' . $completed))->setTimezone(core_date::get_server_timezone_object());
+    return $date->modify('+' . $months . ' months')->getTimestamp();
+}
+
+/**
+ * Tracking status for a completed competency.
+ *
+ * @param int|null $expirydate
+ * @param int $now
+ * @return string
+ */
+function local_trainingmatrix_status_for_expiry(?int $expirydate, int $now): string {
+    if ($expirydate === null) {
+        return 'completed';
+    }
+    if ($expirydate < $now) {
+        return 'expired';
+    }
+    return $expirydate < $now + 30 * DAYSECS ? 'expiring_soon' : 'completed';
+}
+
 function local_trainingmatrix_sync_course_completion($courseid, $userid) {
     global $DB;
 
@@ -246,7 +287,7 @@ function local_trainingmatrix_sync_course_completion($courseid, $userid) {
     }
 
     foreach ($mappings as $compCourse) {
-        $expirydate = $completion->timecompleted + ($compCourse->expirymonths * 30 * 24 * 60 * 60);
+        $expirydate = local_trainingmatrix_expiry_date((int)$completion->timecompleted, (int)$compCourse->expirymonths);
         $existing = $DB->get_record('local_tm_completions', [
             'userid' => $userid,
             'competencyid' => $compCourse->competencyid,
@@ -259,8 +300,7 @@ function local_trainingmatrix_sync_course_completion($courseid, $userid) {
         $record->courseid = $courseid;
         $record->completiondate = $completion->timecompleted;
         $record->expirydate = $expirydate;
-        $record->status = $expirydate < $now ? 'expired' :
-            ($expirydate < $now + 30 * DAYSECS ? 'expiring_soon' : 'completed');
+        $record->status = local_trainingmatrix_status_for_expiry($expirydate, $now);
         $record->progress = 100;
         $record->timemodified = $now;
         if ($existing) {
@@ -310,4 +350,32 @@ function local_trainingmatrix_get_compliance_stats() {
     }
 
     return $stats;
+}
+
+/**
+ * Options for user pickers: active, confirmed, non-guest users plus any currently selected user.
+ *
+ * @param array $selected User ids that must be present (e.g. the record being edited).
+ * @param int $limit Maximum number of users to list.
+ * @return array id => label
+ */
+function local_trainingmatrix_user_options(array $selected = [], int $limit = 5000): array {
+    global $DB, $CFG;
+    $fields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
+    $sql = "SELECT u.id, u.email, {$fields}
+              FROM {user} u
+             WHERE u.deleted = 0 AND u.suspended = 0 AND u.confirmed = 1 AND u.id <> :guestid
+          ORDER BY u.lastname, u.firstname, u.id";
+    $users = $DB->get_records_sql($sql, ['guestid' => $CFG->siteguest], 0, $limit);
+    $selected = array_filter(array_map('intval', $selected));
+    $missing = array_diff($selected, array_keys($users));
+    if ($missing) {
+        [$insql, $inparams] = $DB->get_in_or_equal($missing, SQL_PARAMS_NAMED);
+        $users += $DB->get_records_sql("SELECT u.id, u.email, {$fields} FROM {user} u WHERE u.id {$insql}", $inparams);
+    }
+    $options = [];
+    foreach ($users as $u) {
+        $options[$u->id] = fullname($u) . ' (' . $u->email . ')';
+    }
+    return $options;
 }

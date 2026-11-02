@@ -137,7 +137,7 @@ class export_report extends external_api {
                         $e->email,
                         $e->competency_name,
                         $e->code ?? '',
-                        date('Y-m-d', $e->expirydate),
+                        userdate($e->expirydate, '%Y-%m-%d', 99, false),
                         $daysRemaining,
                         $e->course_name ?? '',
                     ];
@@ -166,7 +166,7 @@ class export_report extends external_api {
                         $s->position_name ?? '',
                         $s->department_name ?? '',
                         $s->status,
-                        $s->startdate ? date('Y-m-d', $s->startdate) : '',
+                        $s->startdate ? userdate($s->startdate, '%Y-%m-%d', 99, false) : '',
                         $s->employeeid ?? '',
                     ];
                 }
@@ -206,13 +206,13 @@ class export_report extends external_api {
 
         // Prevent spreadsheet applications interpreting user-controlled CSV cells as formulas.
         $output = fopen('php://temp', 'r+');
-        fputcsv($output, $headers);
+        fputcsv($output, $headers, ',', '"', '\\');
         foreach ($rows as $row) {
             $row = array_map(static function ($value) {
                 $value = (string)$value;
                 return preg_match('/^[\s]*[=+@-]|^[\t\r\n]/u', $value) ? "'" . $value : $value;
             }, $row);
-            fputcsv($output, $row);
+            fputcsv($output, $row, ',', '"', '\\');
         }
         rewind($output);
         $csv = stream_get_contents($output);

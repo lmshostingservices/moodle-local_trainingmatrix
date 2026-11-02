@@ -27,46 +27,6 @@ defined('MOODLE_INTERNAL') || die();
 $action = optional_param('action', '', PARAM_ALPHA);
 $id = optional_param('id', 0, PARAM_INT);
 
-// Handle form submissions
-if ($action === 'save' && confirm_sesskey()) {
-    $data = new stdClass();
-    $data->name = required_param('name', PARAM_TEXT);
-    $data->description = optional_param('description', '', PARAM_CLEANHTML);
-    $data->departmentid = optional_param('departmentid', null, PARAM_INT) ?: null;
-    $data->level = optional_param('level', 1, PARAM_INT);
-    $data->timemodified = time();
-    
-    if ($id > 0) {
-        $data->id = $id;
-        $DB->update_record('local_tm_positions', $data);
-    } else {
-        $data->timecreated = time();
-        $id = $DB->insert_record('local_tm_positions', $data);
-    }
-    
-    // Handle competency assignments
-    $competencies = optional_param_array('competencies', [], PARAM_INT);
-    $DB->delete_records('local_tm_pos_comps', ['positionid' => $id]);
-    foreach ($competencies as $compId) {
-        $pc = new stdClass();
-        $pc->positionid = $id;
-        $pc->competencyid = $compId;
-        $pc->mandatory = 1;
-        $pc->timecreated = time();
-        $DB->insert_record('local_tm_pos_comps', $pc);
-    }
-    
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions']),
-        get_string('position_saved', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
-}
-
-if ($action === 'delete' && $id > 0 && confirm_sesskey()) {
-    $DB->delete_records('local_tm_pos_comps', ['positionid' => $id]);
-    $DB->delete_records('local_tm_positions', ['id' => $id]);
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions']),
-        get_string('position_deleted', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
-}
-
 echo html_writer::start_div('tm-positions tm-animate-in');
 
 // Header with add button
@@ -83,17 +43,17 @@ echo html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' 
 echo html_writer::end_div();
 
 // AI Generation Scripts
-$credits_per_position = 10; // Fixed owner-approved server tariff.
+$credits_per_position = \local_trainingmatrix\local\ai_client::CREDITS_PER_POSITION;
 $PAGE->requires->js_amd_inline("
 require(['jquery'], function ($) {
-    window.tmGenerateCompetencies = function (positionId, positionName) {
-        if (!confirm('" . get_string('confirm_ai_generate', 'local_trainingmatrix', $credits_per_position) . "')) {
+    window.tmGenerateCompetencies = function (positionId) {
+        if (!confirm(" . json_encode(get_string('confirm_ai_generate', 'local_trainingmatrix', $credits_per_position)) . ")) {
             return;
         }
         
         var btn = $('#ai-generate-' + positionId);
         var originalHtml = btn.html();
-        btn.html('<i class=\"fa fa-spinner fa-spin mr-2\"></i>" . get_string('generating_competencies', 'local_trainingmatrix') . "');
+        btn.html('<i class=\"fa fa-spinner fa-spin mr-2\"></i>' + " . json_encode(s(get_string('generating_competencies', 'local_trainingmatrix'))) . ");
         btn.prop('disabled', true);
         
         $.ajax({
@@ -107,7 +67,7 @@ require(['jquery'], function ($) {
             dataType: 'json',
             success: function (response) {
                 if (response.ok) {
-                    var msg = '" . get_string('competencies_generated', 'local_trainingmatrix') . "';
+                    var msg = " . json_encode(get_string('competencies_generated', 'local_trainingmatrix')) . ";
                     if (response.created && response.created.length > 0) {
                         msg += '\\n\\nCreated: ' + response.created.join(', ');
                     }
@@ -167,7 +127,7 @@ if ($action === 'add' || $action === 'edit') {
     // Description
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', 'Description', ['class' => 'tm-form-label']);
-    echo html_writer::tag('textarea', $position->description ?? '', [
+    echo html_writer::tag('textarea', s($position->description ?? ''), [
         'name' => 'description',
         'class' => 'tm-form-textarea',
         'rows' => 3,
@@ -179,7 +139,7 @@ if ($action === 'add' || $action === 'edit') {
     echo html_writer::tag('label', get_string('position_department', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
     $deptOptions = ['' => get_string('select_department', 'local_trainingmatrix')];
     foreach ($departments as $d) {
-        $deptOptions[$d->id] = $d->name;
+        $deptOptions[$d->id] = format_string($d->name);
     }
     echo html_writer::select($deptOptions, 'departmentid', $position->departmentid ?? '', false, ['class' => 'tm-form-select']);
     echo html_writer::end_div();
@@ -222,7 +182,7 @@ if ($action === 'add' || $action === 'edit') {
                 echo html_writer::start_div('', ['style' => 'display: flex; align-items: center; padding: 6px 0;']);
                 echo html_writer::checkbox('competencies[]', $c->id, $checked, '', ['id' => 'comp_' . $c->id]);
                 echo html_writer::tag('label', 
-                    ($c->code ? html_writer::tag('span', $c->code, ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') . $c->name,
+                    ($c->code ? html_writer::tag('span', s($c->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') . format_string($c->name),
                     ['for' => 'comp_' . $c->id, 'style' => 'margin-left: 8px; cursor: pointer;']
                 );
                 echo html_writer::end_div();
@@ -284,9 +244,9 @@ if ($action === 'add' || $action === 'edit') {
             echo html_writer::start_tag('tr');
             echo html_writer::tag('td', 
                 html_writer::tag('strong', format_string($pos->name)) .
-                ($pos->description ? html_writer::tag('div', format_string(substr($pos->description, 0, 60)) . (strlen($pos->description) > 60 ? '...' : ''), ['style' => 'color: var(--tm-gray-500); font-size: 12px;']) : '')
+                ($pos->description ? html_writer::tag('div', s(shorten_text(html_to_text($pos->description, 0, false), 60)), ['style' => 'color: var(--tm-gray-500); font-size: 12px;']) : '')
             );
-            echo html_writer::tag('td', $pos->department_name ?: '-');
+            echo html_writer::tag('td', $pos->department_name ? format_string($pos->department_name) : '-');
             echo html_writer::tag('td', html_writer::tag('span', 'Level ' . $pos->level, ['class' => 'tm-badge info']));
             echo html_writer::tag('td', html_writer::tag('span', $pos->competency_count, ['class' => 'tm-badge warning']));
             echo html_writer::tag('td', html_writer::tag('span', $pos->staff_count, ['class' => 'tm-badge primary']));
@@ -296,7 +256,7 @@ if ($action === 'add' || $action === 'edit') {
                 html_writer::start_div('tm-dropdown-menu') .
                 html_writer::tag('button',
                     html_writer::tag('i', '', ['class' => 'fa fa-magic mr-2']) . get_string('ai_generate_competencies', 'local_trainingmatrix'),
-                    ['class' => 'tm-dropdown-item', 'id' => 'ai-generate-' . $pos->id, 'onclick' => "tmGenerateCompetencies({$pos->id}, '" . addslashes($pos->name) . "')"]
+                    ['class' => 'tm-dropdown-item', 'id' => 'ai-generate-' . $pos->id, 'onclick' => "tmGenerateCompetencies({$pos->id})"]
                 ) .
                 html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions', 'action' => 'edit', 'id' => $pos->id]),
                     html_writer::tag('i', '', ['class' => 'fa fa-edit mr-2']) . 'Edit',

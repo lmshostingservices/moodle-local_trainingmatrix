@@ -67,7 +67,8 @@ $services = [
             'local_trainingmatrix_generate_competencies',
             'local_trainingmatrix_export_report',
         ],
-        'restrictedusers' => 0,
-        'enabled' => 1,
+        'restrictedusers' => 1,
+        'enabled' => 0,
+        'shortname' => 'local_trainingmatrix_api',
     ],
 ];

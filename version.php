@@ -26,8 +26,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_trainingmatrix';
-$plugin->version   = 2026101201;
-$plugin->requires  = 2024042200; // Moodle 4.4.
-$plugin->supported = [404, 502]; // Training-suite target range; see the acceptance report.
+$plugin->version   = 2026110201;
+$plugin->requires  = 2024042200; // Moodle 4.4 (tested on 4.5–5.3).
+$plugin->supported = [405, 503]; // Moodle 4.5 to 5.3.
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.0.18';
+$plugin->release   = '1.0.22';

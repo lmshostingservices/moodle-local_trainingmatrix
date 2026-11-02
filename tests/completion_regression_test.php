@@ -17,11 +17,13 @@ defined('MOODLE_INTERNAL') || die();
  * @copyright 2026 LMS Labs
  * @license https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_get_staff_compliance')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_sync_course_completion')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\external\export_report::class)]
 final class completion_regression_test extends \advanced_testcase {
     /**
      * Completion status remains stable across expiry jobs.
      *
-     * @covers ::local_trainingmatrix_get_staff_compliance
      */
     public function test_status_after_expiry_job(): void {
         global $DB, $CFG;
@@ -69,7 +71,6 @@ final class completion_regression_test extends \advanced_testcase {
     /**
      * Every required mapping is synced, without duplicates or unrelated awards.
      *
-     * @covers ::local_trainingmatrix_sync_course_completion
      */
     public function test_direct_sync_mapping_scope(): void {
         global $DB, $CFG;
@@ -107,7 +108,6 @@ final class completion_regression_test extends \advanced_testcase {
     /**
      * Excel export is a real workbook, not CSV with another extension.
      *
-     * @covers \local_trainingmatrix\external\export_report::execute
      */
     public function test_excel_workbook(): void {
         $this->resetAfterTest();

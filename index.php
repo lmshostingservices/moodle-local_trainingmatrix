@@ -23,10 +23,11 @@
  */
 
 require_once(__DIR__ . '/../../config.php');
-require_once($CFG->libdir . '/adminlib.php');
+require_once(__DIR__ . '/lib.php');
 
 $tab = optional_param('tab', 'dashboard', PARAM_ALPHA);
 $action = optional_param('action', '', PARAM_ALPHA);
+$id = optional_param('id', 0, PARAM_INT);
 
 require_login();
 $context = context_system::instance();
@@ -41,7 +42,18 @@ $PAGE->set_pagelayout('admin');
 $PAGE->set_title(get_string('trainingmatrix', 'local_trainingmatrix'));
 $PAGE->set_heading(get_string('trainingmatrix', 'local_trainingmatrix'));
 
-$PAGE->requires->css('/local/trainingmatrix/styles.css');
+// State-changing actions run before any output so that redirect() can send a proper header.
+$actionpermissions = [
+    'departments' => $canmanage,
+    'positions' => $canmanage,
+    'competencies' => $canmanage,
+    'staff' => $canviewall,
+    'reports' => $canviewall,
+];
+if (in_array($action, ['save', 'delete', 'remind'], true) && !empty($actionpermissions[$tab])) {
+    require_sesskey();
+    require(__DIR__ . '/tabs/' . $tab . '_actions.php');
+}
 
 echo $OUTPUT->header();
 
@@ -55,7 +67,7 @@ echo html_writer::tag('h1',
     get_string('trainingmatrix', 'local_trainingmatrix'),
     ['class' => 'tm-title']
 );
-echo html_writer::tag('p', 'Human Capital Management & Compliance Tracking', ['class' => 'tm-subtitle']);
+echo html_writer::tag('p', get_string('subtitle', 'local_trainingmatrix'), ['class' => 'tm-subtitle']);
 echo html_writer::end_div();
 echo html_writer::end_div();
 

@@ -27,52 +27,6 @@ defined('MOODLE_INTERNAL') || die();
 $action = optional_param('action', '', PARAM_ALPHA);
 $id = optional_param('id', 0, PARAM_INT);
 
-// Handle form submissions
-if ($action === 'save' && confirm_sesskey()) {
-    $data = new stdClass();
-    $data->name = required_param('name', PARAM_TEXT);
-    $data->code = optional_param('code', '', PARAM_ALPHANUMEXT);
-    $data->description = optional_param('description', '', PARAM_CLEANHTML);
-    $data->category = optional_param('category', '', PARAM_TEXT);
-    $data->mandatory = optional_param('mandatory', 0, PARAM_INT);
-    $data->timemodified = time();
-    
-    if ($id > 0) {
-        $data->id = $id;
-        $DB->update_record('local_tm_competencies', $data);
-    } else {
-        $data->timecreated = time();
-        $id = $DB->insert_record('local_tm_competencies', $data);
-    }
-    
-    // Handle course link
-    $courseid = optional_param('courseid', 0, PARAM_INT);
-    $expirymonths = optional_param('expirymonths', 12, PARAM_INT);
-    $notifydays = optional_param('notifydays', 30, PARAM_INT);
-    
-    $DB->delete_records('local_tm_comp_courses', ['competencyid' => $id]);
-    if ($courseid > 0) {
-        $cc = new stdClass();
-        $cc->competencyid = $id;
-        $cc->courseid = $courseid;
-        $cc->expirymonths = $expirymonths;
-        $cc->notifydays = $notifydays;
-        $cc->timecreated = time();
-        $DB->insert_record('local_tm_comp_courses', $cc);
-    }
-    
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies']),
-        get_string('competency_saved', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
-}
-
-if ($action === 'delete' && $id > 0 && confirm_sesskey()) {
-    $DB->delete_records('local_tm_comp_courses', ['competencyid' => $id]);
-    $DB->delete_records('local_tm_pos_comps', ['competencyid' => $id]);
-    $DB->delete_records('local_tm_competencies', ['id' => $id]);
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies']),
-        get_string('competency_deleted', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
-}
-
 echo html_writer::start_div('tm-competencies tm-animate-in');
 
 // Header with add button
@@ -177,7 +131,7 @@ if ($action === 'add' || $action === 'edit') {
     echo html_writer::tag('label', get_string('linked_course', 'local_trainingmatrix') . ' *', ['class' => 'tm-form-label']);
     $courseOptions = ['' => get_string('select_course', 'local_trainingmatrix')];
     foreach ($courses as $c) {
-        $courseOptions[$c->id] = $c->fullname . ' [' . $c->shortname . ']';
+        $courseOptions[$c->id] = format_string($c->fullname) . ' [' . format_string($c->shortname) . ']';
     }
     echo html_writer::select($courseOptions, 'courseid', $courseLink->courseid ?? '', false, ['class' => 'tm-form-select']);
     echo html_writer::tag('div', 'The Moodle course that provides this competency', ['style' => 'color: var(--tm-gray-500); font-size: 12px; margin-top: 4px;']);
@@ -191,8 +145,8 @@ if ($action === 'add' || $action === 'edit') {
         'name' => 'expirymonths',
         'class' => 'tm-form-input',
         'value' => $courseLink->expirymonths ?? 12,
-        'min' => 1,
-        'max' => 120,
+        'min' => 0,
+        'max' => 600,
     ]);
     echo html_writer::tag('div', get_string('tooltip_expiry_months', 'local_trainingmatrix'), ['style' => 'color: var(--tm-gray-500); font-size: 12px; margin-top: 4px;']);
     echo html_writer::end_div();
@@ -217,7 +171,7 @@ if ($action === 'add' || $action === 'edit') {
     // Description (full width)
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', 'Description', ['class' => 'tm-form-label']);
-    echo html_writer::tag('textarea', $competency->description ?? '', [
+    echo html_writer::tag('textarea', s($competency->description ?? ''), [
         'name' => 'description',
         'class' => 'tm-form-textarea',
         'rows' => 3,
@@ -277,15 +231,22 @@ if ($action === 'add' || $action === 'edit') {
         foreach ($competencies as $comp) {
             echo html_writer::start_tag('tr');
             echo html_writer::tag('td', 
-                ($comp->code ? html_writer::tag('span', $comp->code, ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') .
+                ($comp->code ? html_writer::tag('span', s($comp->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') .
                 html_writer::tag('strong', format_string($comp->name))
             );
-            echo html_writer::tag('td', $comp->category ?: '-');
+            echo html_writer::tag('td', $comp->category ? s($comp->category) : '-');
             echo html_writer::tag('td', $comp->course_name ? 
                 html_writer::link(new moodle_url('/course/view.php', ['id' => $comp->courseid]), format_string($comp->course_name), ['target' => '_blank']) : 
                 html_writer::tag('span', 'Not linked', ['style' => 'color: var(--tm-danger);'])
             );
-            echo html_writer::tag('td', $comp->expirymonths ? $comp->expirymonths . ' months' : '-');
+            if (empty($comp->courseid)) {
+                $expirycell = '-';
+            } else if ((int)$comp->expirymonths === 0) {
+                $expirycell = get_string('expiry_never', 'local_trainingmatrix');
+            } else {
+                $expirycell = get_string('expiry_monthsvalue', 'local_trainingmatrix', (int)$comp->expirymonths);
+            }
+            echo html_writer::tag('td', $expirycell);
             echo html_writer::tag('td', html_writer::tag('span', $comp->position_count, ['class' => 'tm-badge primary']));
             echo html_writer::tag('td', 
                 $comp->mandatory ? 

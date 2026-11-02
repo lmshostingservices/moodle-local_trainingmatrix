@@ -60,7 +60,8 @@ class sync_completions extends \core\task\scheduled_task {
 
                 if ($completion && $completion->timecompleted) {
                     // Calculate expiry date
-                    $expiryDate = $completion->timecompleted + ($cc->expirymonths * 30 * 24 * 60 * 60);
+                    $expiryDate = local_trainingmatrix_expiry_date((int)$completion->timecompleted,
+                        (int)$cc->expirymonths);
 
                     // Check existing training matrix completion
                     $tmCompletion = $DB->get_record('local_tm_completions', [
@@ -69,12 +70,7 @@ class sync_completions extends \core\task\scheduled_task {
                         'courseid' => $cc->courseid,
                     ]);
 
-                    $status = 'completed';
-                    if ($expiryDate < $now) {
-                        $status = 'expired';
-                    } else if ($expiryDate < ($now + (30 * 24 * 60 * 60))) {
-                        $status = 'expiring_soon';
-                    }
+                    $status = local_trainingmatrix_status_for_expiry($expiryDate, $now);
 
                     if ($tmCompletion) {
                         // Update existing
@@ -113,10 +109,11 @@ class sync_completions extends \core\task\scheduled_task {
                     // Check for in-progress
                     $activities = $DB->get_record_sql("
                         SELECT COUNT(cmc.id) as completed, 
-                               (SELECT COUNT(*) FROM {course_modules} cm WHERE cm.course = ? AND cm.completion > 0) as total
+                               (SELECT COUNT(*) FROM {course_modules} cm2 WHERE cm2.course = ? AND cm2.completion > 0
+                                AND cm2.deletioninprogress = 0) as total
                         FROM {course_modules_completion} cmc
                         JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
-                        WHERE cm.course = ? AND cmc.userid = ? AND cmc.completionstate > 0
+                        WHERE cm.course = ? AND cm.completion > 0 AND cmc.userid = ? AND cmc.completionstate > 0
                     ", [$cc->courseid, $cc->courseid, $staff->userid]);
 
                     if ($activities && $activities->total > 0) {

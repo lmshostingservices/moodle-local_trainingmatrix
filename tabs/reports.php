@@ -121,10 +121,10 @@ switch ($reportType) {
                 
                 echo html_writer::start_tag('tr');
                 echo html_writer::tag('td', 
-                    html_writer::tag('strong', $staff->firstname . ' ' . $staff->lastname) .
-                    html_writer::tag('div', $staff->email, ['style' => 'color: var(--tm-gray-500); font-size: 12px;'])
+                    html_writer::tag('strong', s($staff->firstname . ' ' . $staff->lastname)) .
+                    html_writer::tag('div', s($staff->email), ['style' => 'color: var(--tm-gray-500); font-size: 12px;'])
                 );
-                echo html_writer::tag('td', $staff->position_name ?: '-');
+                echo html_writer::tag('td', $staff->position_name ? format_string($staff->position_name) : '-');
                 echo html_writer::tag('td', html_writer::tag('span', $stats['total'], ['class' => 'tm-badge info']));
                 echo html_writer::tag('td', html_writer::tag('span', $stats['completed'], ['class' => 'tm-badge completed']));
                 echo html_writer::tag('td', $stats['expiring_soon'] > 0 ? 
@@ -219,11 +219,11 @@ switch ($reportType) {
             foreach ($expired as $e) {
                 $daysOverdue = ceil(($now - $e->expirydate) / 86400);
                 echo html_writer::start_tag('tr');
-                echo html_writer::tag('td', $e->firstname . ' ' . $e->lastname . html_writer::tag('div', $e->email, ['style' => 'font-size: 12px; color: var(--tm-gray-500);']));
-                echo html_writer::tag('td', ($e->code ? html_writer::tag('span', $e->code, ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') . $e->competency_name);
-                echo html_writer::tag('td', date('d M Y', $e->expirydate));
+                echo html_writer::tag('td', s($e->firstname . ' ' . $e->lastname) . html_writer::tag('div', s($e->email), ['style' => 'font-size: 12px; color: var(--tm-gray-500);']));
+                echo html_writer::tag('td', ($e->code ? html_writer::tag('span', s($e->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') . format_string($e->competency_name));
+                echo html_writer::tag('td', userdate($e->expirydate, get_string('strftimedate', 'langconfig')));
                 echo html_writer::tag('td', html_writer::tag('span', $daysOverdue . ' days', ['class' => 'tm-badge danger']));
-                echo html_writer::tag('td', html_writer::link('#', 'Send Reminder', ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']));
+                echo html_writer::tag('td', html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'reports', 'report' => 'expiry', 'action' => 'remind', 'cid' => $e->id, 'sesskey' => sesskey()]), get_string('send_reminder', 'local_trainingmatrix'), ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']));
                 echo html_writer::end_tag('tr');
             }
             
@@ -252,11 +252,11 @@ switch ($reportType) {
                 $daysRemaining = ceil(($e->expirydate - $now) / 86400);
                 $badgeClass = $daysRemaining <= 7 ? 'danger' : 'warning';
                 echo html_writer::start_tag('tr');
-                echo html_writer::tag('td', $e->firstname . ' ' . $e->lastname . html_writer::tag('div', $e->email, ['style' => 'font-size: 12px; color: var(--tm-gray-500);']));
-                echo html_writer::tag('td', ($e->code ? html_writer::tag('span', $e->code, ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') . $e->competency_name);
-                echo html_writer::tag('td', date('d M Y', $e->expirydate));
+                echo html_writer::tag('td', s($e->firstname . ' ' . $e->lastname) . html_writer::tag('div', s($e->email), ['style' => 'font-size: 12px; color: var(--tm-gray-500);']));
+                echo html_writer::tag('td', ($e->code ? html_writer::tag('span', s($e->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') . format_string($e->competency_name));
+                echo html_writer::tag('td', userdate($e->expirydate, get_string('strftimedate', 'langconfig')));
                 echo html_writer::tag('td', html_writer::tag('span', $daysRemaining . ' days', ['class' => 'tm-badge ' . $badgeClass]));
-                echo html_writer::tag('td', html_writer::link('#', 'Send Reminder', ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']));
+                echo html_writer::tag('td', html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'reports', 'report' => 'expiry', 'action' => 'remind', 'cid' => $e->id, 'sesskey' => sesskey()]), get_string('send_reminder', 'local_trainingmatrix'), ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']));
                 echo html_writer::end_tag('tr');
             }
             

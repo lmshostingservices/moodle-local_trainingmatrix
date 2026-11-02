@@ -40,21 +40,22 @@ class send_notifications extends \core\task\scheduled_task {
 
         // Get completions expiring soon that haven't been notified
         $expiringCompletions = $DB->get_records_sql("
-            SELECT tc.*, c.name as competency_name, cc.notifydays, course.fullname as course_name,
-                   u.id as userid, u.firstname, u.lastname, u.email
+            SELECT tc.*, c.name AS competency_name, cc.notifydays, course.fullname AS course_name
             FROM {local_tm_completions} tc
             JOIN {local_tm_competencies} c ON c.id = tc.competencyid
             JOIN {local_tm_comp_courses} cc ON cc.competencyid = c.id AND cc.courseid = tc.courseid
             JOIN {course} course ON course.id = tc.courseid
             JOIN {user} u ON u.id = tc.userid
-            JOIN {local_tm_staff} s ON s.userid = tc.userid AND s.status = 'active'
-            JOIN {local_tm_pos_comps} pc ON pc.positionid = s.positionid AND pc.competencyid = tc.competencyid
             WHERE tc.notified = 0
               AND u.deleted = 0 AND u.suspended = 0
               AND tc.status IN ('completed', 'expiring_soon')
               AND tc.expirydate IS NOT NULL
               AND tc.expirydate > ?
               AND tc.expirydate <= (? + (cc.notifydays * 86400))
+              AND EXISTS (SELECT 1
+                            FROM {local_tm_staff} s
+                            JOIN {local_tm_pos_comps} pc ON pc.positionid = s.positionid
+                           WHERE s.userid = tc.userid AND s.status = 'active' AND pc.competencyid = tc.competencyid)
         ", [$now, $now]);
 
         $count = 0;
@@ -76,8 +77,9 @@ class send_notifications extends \core\task\scheduled_task {
             $a = new \stdClass();
             $a->competency = $tc->competency_name;
             $a->days = $daysUntilExpiry;
-            $a->date = userdate($tc->expirydate, '%d %B %Y');
-            $a->course = $tc->course_name;
+            $a->date = userdate($tc->expirydate, get_string('strftimedate', 'langconfig'),
+                \core_date::get_user_timezone($user));
+            $a->course = format_string($tc->course_name, true, ['context' => \context_course::instance($tc->courseid)]);
 
             $subject = get_string('notification_subject_expiry', 'local_trainingmatrix', $a);
             $message = get_string('notification_body_expiry', 'local_trainingmatrix', $a);
@@ -132,6 +134,6 @@ class send_notifications extends \core\task\scheduled_task {
      * @return bool Whether Moodle accepted the send.
      */
     protected function send_email(\stdClass $user, string $subject, string $message): bool {
-        return email_to_user($user, get_admin(), $subject, $message);
+        return email_to_user($user, \core_user::get_noreply_user(), $subject, $message);
     }
 }

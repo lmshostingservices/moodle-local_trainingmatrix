@@ -133,8 +133,7 @@ $upcomingExpirations = $DB->get_records_sql("
       AND tc.expirydate IS NOT NULL 
       AND tc.expirydate BETWEEN ? AND ?
     ORDER BY tc.expirydate ASC
-    LIMIT 10
-", [$now, $thirtyDays]);
+", [$now, $thirtyDays], 0, 10);
 
 if (empty($upcomingExpirations)) {
     echo html_writer::start_div('tm-empty');
@@ -161,24 +160,19 @@ if (empty($upcomingExpirations)) {
         
         echo html_writer::start_tag('tr');
         echo html_writer::tag('td', 
-            html_writer::tag('strong', $exp->firstname . ' ' . $exp->lastname) . 
+            html_writer::tag('strong', s($exp->firstname . ' ' . $exp->lastname)) . 
             html_writer::empty_tag('br') .
-            html_writer::tag('span', $exp->email, ['style' => 'color: var(--tm-gray-500); font-size: 12px;'])
+            html_writer::tag('span', s($exp->email), ['style' => 'color: var(--tm-gray-500); font-size: 12px;'])
         );
         echo html_writer::tag('td', 
-            ($exp->competency_code ? html_writer::tag('span', $exp->competency_code, ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') .
-            $exp->competency_name
+            ($exp->competency_code ? html_writer::tag('span', s($exp->competency_code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') .
+            format_string($exp->competency_name)
         );
-        echo html_writer::tag('td', userdate($exp->expirydate, '%d %b %Y'));
+        echo html_writer::tag('td', userdate($exp->expirydate, get_string('strftimedate', 'langconfig')));
         echo html_writer::tag('td', 
             html_writer::tag('span', $daysRemaining . ' days', ['class' => 'tm-badge ' . $badgeClass])
         );
-        echo html_writer::tag('td',
-            html_writer::link('#', 
-                html_writer::tag('i', '', ['class' => 'fa fa-bell']),
-                ['class' => 'tm-btn tm-btn-secondary tm-btn-icon tm-btn-sm', 'title' => 'Send Reminder', 'data-tooltip' => 'Send Reminder']
-            )
-        );
+        echo html_writer::tag('td', html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'reports', 'report' => 'expiry', 'action' => 'remind', 'cid' => $exp->id, 'sesskey' => sesskey()]), html_writer::tag('i', '', ['class' => 'fa fa-bell']), ['class' => 'tm-btn tm-btn-secondary tm-btn-icon tm-btn-sm', 'title' => get_string('send_reminder', 'local_trainingmatrix')]));
         echo html_writer::end_tag('tr');
     }
     

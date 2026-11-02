@@ -31,58 +31,6 @@ $filter_pos = optional_param('pos', 0, PARAM_INT);
 $filter_status = optional_param('status', '', PARAM_ALPHA);
 $search = optional_param('search', '', PARAM_TEXT);
 
-// Handle form submissions
-if ($action === 'save' && confirm_sesskey()) {
-    require_capability('local/trainingmatrix:assign', $context);
-    $data = new stdClass();
-    $data->userid = required_param('userid', PARAM_INT);
-    $data->positionid = required_param('positionid', PARAM_INT);
-    $data->departmentid = optional_param('departmentid', null, PARAM_INT) ?: null;
-    $data->employeeid = optional_param('employeeid', '', PARAM_ALPHANUMEXT);
-    $data->managerid = optional_param('managerid', null, PARAM_INT) ?: null;
-    $data->status = optional_param('status', 'active', PARAM_ALPHA);
-    
-    $startdate = optional_param('startdate', '', PARAM_TEXT);
-    $data->startdate = $startdate ? strtotime($startdate) : null;
-    
-    $enddate = optional_param('enddate', '', PARAM_TEXT);
-    $data->enddate = $enddate ? strtotime($enddate) : null;
-    
-    $data->timemodified = time();
-    if (!in_array($data->status, ['active', 'inactive', 'terminated'], true)) {
-        throw new invalid_parameter_exception('Invalid staff status');
-    }
-    $DB->get_record('local_tm_positions', ['id' => $data->positionid], '*', MUST_EXIST);
-    $DB->get_record('user', ['id' => $data->userid, 'deleted' => 0, 'suspended' => 0], '*', MUST_EXIST);
-    $transaction = $DB->start_delegated_transaction();
-    
-    if ($id > 0) {
-        $data->id = $id;
-        $DB->update_record('local_tm_staff', $data);
-    } else {
-        $data->timecreated = time();
-        $id = $DB->insert_record('local_tm_staff', $data);
-    }
-    if ($data->status === 'active') {
-        local_trainingmatrix_assign_required_courses((int)$data->userid, (int)$data->positionid);
-    }
-    $transaction->allow_commit();
-    
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff']),
-        get_string('staff_saved', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
-}
-
-if ($action === 'delete' && $id > 0 && confirm_sesskey()) {
-    require_capability('local/trainingmatrix:assign', $context);
-    $staff = $DB->get_record('local_tm_staff', ['id' => $id]);
-    if ($staff) {
-        $DB->delete_records('local_tm_completions', ['userid' => $staff->userid]);
-        $DB->delete_records('local_tm_staff', ['id' => $id]);
-    }
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff']),
-        get_string('item_deleted', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
-}
-
 echo html_writer::start_div('tm-staff tm-animate-in');
 
 // Header with add button
@@ -105,7 +53,7 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
     $staff = $action === 'edit' ? $DB->get_record('local_tm_staff', ['id' => $id]) : null;
     $departments = $DB->get_records('local_tm_departments', null, 'name', 'id, name');
     $positions = $DB->get_records('local_tm_positions', null, 'name', 'id, name, departmentid');
-    $users = $DB->get_records_sql("SELECT id, firstname, lastname, email FROM {user} WHERE deleted = 0 AND suspended = 0 ORDER BY lastname, firstname LIMIT 1000");
+    $useroptions = local_trainingmatrix_user_options($staff ? [$staff->userid, $staff->managerid] : []);
     
     echo html_writer::start_div('tm-card');
     echo html_writer::start_div('tm-card-header');
@@ -126,9 +74,7 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('staff_member', 'local_trainingmatrix') . ' *', ['class' => 'tm-form-label']);
     $userOptions = ['' => get_string('select_user', 'local_trainingmatrix')];
-    foreach ($users as $u) {
-        $userOptions[$u->id] = fullname($u) . ' (' . $u->email . ')';
-    }
+    $userOptions += $useroptions;
     echo html_writer::select($userOptions, 'userid', $staff->userid ?? '', false, ['class' => 'tm-form-select', 'required' => 'required']);
     echo html_writer::end_div();
     
@@ -137,7 +83,7 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
     echo html_writer::tag('label', get_string('position_name', 'local_trainingmatrix') . ' *', ['class' => 'tm-form-label']);
     $posOptions = ['' => get_string('select_position', 'local_trainingmatrix')];
     foreach ($positions as $p) {
-        $posOptions[$p->id] = $p->name;
+        $posOptions[$p->id] = format_string($p->name);
     }
     echo html_writer::select($posOptions, 'positionid', $staff->positionid ?? '', false, ['class' => 'tm-form-select', 'required' => 'required']);
     echo html_writer::end_div();
@@ -147,7 +93,7 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
     echo html_writer::tag('label', get_string('departments', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
     $deptOptions = ['' => get_string('select_department', 'local_trainingmatrix')];
     foreach ($departments as $d) {
-        $deptOptions[$d->id] = $d->name;
+        $deptOptions[$d->id] = format_string($d->name);
     }
     echo html_writer::select($deptOptions, 'departmentid', $staff->departmentid ?? '', false, ['class' => 'tm-form-select']);
     echo html_writer::end_div();
@@ -176,7 +122,7 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
         'type' => 'date',
         'name' => 'startdate',
         'class' => 'tm-form-input',
-        'value' => $staff->startdate ? date('Y-m-d', $staff->startdate) : '',
+        'value' => !empty($staff->startdate) ? userdate($staff->startdate, '%Y-%m-%d', 99, false) : '',
     ]);
     echo html_writer::end_div();
     
@@ -187,14 +133,15 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
         'type' => 'date',
         'name' => 'enddate',
         'class' => 'tm-form-input',
-        'value' => $staff->enddate ? date('Y-m-d', $staff->enddate) : '',
+        'value' => !empty($staff->enddate) ? userdate($staff->enddate, '%Y-%m-%d', 99, false) : '',
     ]);
     echo html_writer::end_div();
     
     // Manager
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('direct_manager', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
-    echo html_writer::select($userOptions, 'managerid', $staff->managerid ?? '', false, ['class' => 'tm-form-select']);
+    echo html_writer::select(['' => get_string('select_manager', 'local_trainingmatrix')] + $useroptions, 'managerid',
+        $staff->managerid ?? '', false, ['class' => 'tm-form-select']);
     echo html_writer::end_div();
     
     // Status
@@ -247,14 +194,14 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
     // Department filter
     $deptOptions = ['' => get_string('all_departments', 'local_trainingmatrix')];
     foreach ($departments as $d) {
-        $deptOptions[$d->id] = $d->name;
+        $deptOptions[$d->id] = format_string($d->name);
     }
     echo html_writer::select($deptOptions, 'dept', $filter_dept, false, ['class' => 'tm-filter-select']);
     
     // Position filter
     $posOptions = ['' => get_string('all_positions', 'local_trainingmatrix')];
     foreach ($positions as $p) {
-        $posOptions[$p->id] = $p->name;
+        $posOptions[$p->id] = format_string($p->name);
     }
     echo html_writer::select($posOptions, 'pos', $filter_pos, false, ['class' => 'tm-filter-select']);
     
@@ -289,8 +236,13 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
         $params[] = $filter_status;
     }
     if ($search) {
-        $where[] = "(u.firstname LIKE ? OR u.lastname LIKE ? OR u.email LIKE ? OR s.employeeid LIKE ?)";
-        $searchWild = '%' . $search . '%';
+        $where[] = '(' . implode(' OR ', [
+            $DB->sql_like('u.firstname', '?', false, false),
+            $DB->sql_like('u.lastname', '?', false, false),
+            $DB->sql_like('u.email', '?', false, false),
+            $DB->sql_like('s.employeeid', '?', false, false),
+        ]) . ')';
+        $searchWild = '%' . $DB->sql_like_escape($search) . '%';
         $params = array_merge($params, [$searchWild, $searchWild, $searchWild, $searchWild]);
     }
     
@@ -301,7 +253,7 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
                u.firstname, u.lastname, u.email,
                p.name as position_name,
                d.name as department_name,
-               CONCAT(m.firstname, ' ', m.lastname) as manager_name
+               m.id AS managerid2, m.firstname AS m_firstname, m.lastname AS m_lastname
         FROM {local_tm_staff} s
         JOIN {user} u ON u.id = s.userid
         LEFT JOIN {local_tm_positions} p ON p.id = s.positionid
@@ -340,13 +292,13 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
             
             echo html_writer::start_tag('tr');
             echo html_writer::tag('td', 
-                html_writer::tag('strong', $staff->firstname . ' ' . $staff->lastname) .
-                html_writer::tag('div', $staff->email, ['style' => 'color: var(--tm-gray-500); font-size: 12px;']) .
-                ($staff->employeeid ? html_writer::tag('div', 'ID: ' . $staff->employeeid, ['style' => 'color: var(--tm-gray-400); font-size: 11px;']) : '')
+                html_writer::tag('strong', s($staff->firstname . ' ' . $staff->lastname)) .
+                html_writer::tag('div', s($staff->email), ['class' => 'tm-muted small']) .
+                ($staff->employeeid ? html_writer::tag('div', 'ID: ' . s($staff->employeeid), ['class' => 'tm-muted small']) : '')
             );
-            echo html_writer::tag('td', $staff->position_name ?: '-');
-            echo html_writer::tag('td', $staff->department_name ?: '-');
-            echo html_writer::tag('td', $staff->startdate ? date('d M Y', $staff->startdate) : '-');
+            echo html_writer::tag('td', $staff->position_name ? format_string($staff->position_name) : '-');
+            echo html_writer::tag('td', $staff->department_name ? format_string($staff->department_name) : '-');
+            echo html_writer::tag('td', $staff->startdate ? userdate($staff->startdate, get_string('strftimedate', 'langconfig')) : '-');
             echo html_writer::tag('td',
                 html_writer::start_div('', ['style' => 'display: flex; align-items: center; gap: 8px;']) .
                 html_writer::start_div('tm-progress') .
@@ -359,7 +311,7 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
             $statusBadge = 'active';
             if ($staff->status === 'inactive') $statusBadge = 'inactive';
             if ($staff->status === 'terminated') $statusBadge = 'danger';
-            echo html_writer::tag('td', html_writer::tag('span', ucfirst($staff->status), ['class' => 'tm-badge ' . $statusBadge]));
+            echo html_writer::tag('td', html_writer::tag('span', s(ucfirst($staff->status)), ['class' => 'tm-badge ' . $statusBadge]));
             
             echo html_writer::tag('td',
                 html_writer::start_div('tm-dropdown') .

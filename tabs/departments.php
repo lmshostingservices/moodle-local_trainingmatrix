@@ -27,34 +27,6 @@ defined('MOODLE_INTERNAL') || die();
 $action = optional_param('action', '', PARAM_ALPHA);
 $id = optional_param('id', 0, PARAM_INT);
 
-// Handle form submissions
-if ($action === 'save' && confirm_sesskey()) {
-    $data = new stdClass();
-    $data->name = required_param('name', PARAM_TEXT);
-    $data->description = optional_param('description', '', PARAM_CLEANHTML);
-    $data->parentid = optional_param('parentid', null, PARAM_INT) ?: null;
-    $data->managerid = optional_param('managerid', null, PARAM_INT) ?: null;
-    $data->sortorder = optional_param('sortorder', 0, PARAM_INT);
-    $data->timemodified = time();
-    
-    if ($id > 0) {
-        $data->id = $id;
-        $DB->update_record('local_tm_departments', $data);
-    } else {
-        $data->timecreated = time();
-        $DB->insert_record('local_tm_departments', $data);
-    }
-    
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'departments']),
-        get_string('department_saved', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
-}
-
-if ($action === 'delete' && $id > 0 && confirm_sesskey()) {
-    $DB->delete_records('local_tm_departments', ['id' => $id]);
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'departments']),
-        get_string('department_deleted', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
-}
-
 echo html_writer::start_div('tm-departments tm-animate-in');
 
 // Header with add button
@@ -99,7 +71,7 @@ if ($action === 'add' || $action === 'edit') {
     // Description
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', 'Description', ['class' => 'tm-form-label']);
-    echo html_writer::tag('textarea', $department->description ?? '', [
+    echo html_writer::tag('textarea', s($department->description ?? ''), [
         'name' => 'description',
         'class' => 'tm-form-textarea',
         'rows' => 3,
@@ -112,7 +84,7 @@ if ($action === 'add' || $action === 'edit') {
     $parentOptions = ['' => '-- None --'];
     foreach ($allDepartments as $d) {
         if ($d->id != $id) {
-            $parentOptions[$d->id] = $d->name;
+            $parentOptions[$d->id] = format_string($d->name);
         }
     }
     echo html_writer::select($parentOptions, 'parentid', $department->parentid ?? '', false, ['class' => 'tm-form-select']);
@@ -121,11 +93,8 @@ if ($action === 'add' || $action === 'edit') {
     // Manager
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('department_manager', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
-    $users = $DB->get_records_sql("SELECT id, firstname, lastname, email FROM {user} WHERE deleted = 0 AND suspended = 0 ORDER BY lastname, firstname LIMIT 500");
-    $userOptions = ['' => '-- Select Manager --'];
-    foreach ($users as $u) {
-        $userOptions[$u->id] = fullname($u) . ' (' . $u->email . ')';
-    }
+    $userOptions = ['' => get_string('select_manager', 'local_trainingmatrix')] +
+        local_trainingmatrix_user_options($department ? [$department->managerid] : []);
     echo html_writer::select($userOptions, 'managerid', $department->managerid ?? '', false, ['class' => 'tm-form-select']);
     echo html_writer::end_div();
     
@@ -157,7 +126,7 @@ if ($action === 'add' || $action === 'edit') {
     $departments = $DB->get_records_sql("
         SELECT d.*, 
                pd.name as parent_name,
-               CONCAT(m.firstname, ' ', m.lastname) as manager_name,
+               m.id AS managerid2, m.firstname AS m_firstname, m.lastname AS m_lastname,
                (SELECT COUNT(*) FROM {local_tm_staff} s WHERE s.departmentid = d.id AND s.status = 'active') as staff_count,
                (SELECT COUNT(*) FROM {local_tm_positions} p WHERE p.departmentid = d.id) as position_count
         FROM {local_tm_departments} d
@@ -195,10 +164,10 @@ if ($action === 'add' || $action === 'edit') {
             echo html_writer::start_tag('tr');
             echo html_writer::tag('td', 
                 html_writer::tag('strong', format_string($dept->name)) .
-                ($dept->description ? html_writer::tag('div', format_string(substr($dept->description, 0, 60)) . (strlen($dept->description) > 60 ? '...' : ''), ['style' => 'color: var(--tm-gray-500); font-size: 12px;']) : '')
+                ($dept->description ? html_writer::tag('div', s(shorten_text(html_to_text($dept->description, 0, false), 60)), ['style' => 'color: var(--tm-gray-500); font-size: 12px;']) : '')
             );
-            echo html_writer::tag('td', $dept->parent_name ?: '-');
-            echo html_writer::tag('td', $dept->manager_name ?: '-');
+            echo html_writer::tag('td', $dept->parent_name ? format_string($dept->parent_name) : '-');
+            echo html_writer::tag('td', $dept->managerid2 ? s($dept->m_firstname . ' ' . $dept->m_lastname) : '-');
             echo html_writer::tag('td', html_writer::tag('span', $dept->position_count, ['class' => 'tm-badge info']));
             echo html_writer::tag('td', html_writer::tag('span', $dept->staff_count, ['class' => 'tm-badge primary']));
             echo html_writer::tag('td',

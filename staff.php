@@ -46,7 +46,6 @@ $PAGE->set_pagelayout('admin');
 $PAGE->set_title(fullname($user) . ' - AI Training Matrix');
 $PAGE->set_heading(fullname($user) . ' - Training Progress');
 
-$PAGE->requires->css('/local/trainingmatrix/styles.css');
 
 $compliance = local_trainingmatrix_get_staff_compliance($staff->userid);
 
@@ -75,9 +74,9 @@ echo html_writer::start_div('', ['style' => 'display: flex; gap: 16px; align-ite
 echo $OUTPUT->user_picture($user, ['size' => 80, 'class' => 'rounded-circle']);
 echo html_writer::start_div();
 echo html_writer::tag('h2', fullname($user), ['style' => 'margin: 0 0 4px;']);
-echo html_writer::tag('div', $user->email, ['style' => 'color: var(--tm-gray-500);']);
+echo html_writer::tag('div', s($user->email), ['style' => 'color: var(--tm-gray-500);']);
 if ($staff->employeeid) {
-    echo html_writer::tag('div', 'Employee ID: ' . $staff->employeeid, ['style' => 'color: var(--tm-gray-400); font-size: 13px;']);
+    echo html_writer::tag('div', 'Employee ID: ' . s($staff->employeeid), ['style' => 'color: var(--tm-gray-400); font-size: 13px;']);
 }
 echo html_writer::end_div();
 echo html_writer::end_div();
@@ -85,15 +84,15 @@ echo html_writer::end_div();
 echo html_writer::start_div('', ['style' => 'margin-top: 16px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;']);
 echo html_writer::tag('div', 
     html_writer::tag('span', 'Position: ', ['style' => 'color: var(--tm-gray-500);']) . 
-    html_writer::tag('strong', $position->name ?? 'Not assigned')
+    html_writer::tag('strong', isset($position->name) ? format_string($position->name) : get_string('not_assigned', 'local_trainingmatrix'))
 );
 echo html_writer::tag('div', 
     html_writer::tag('span', 'Department: ', ['style' => 'color: var(--tm-gray-500);']) . 
-    html_writer::tag('strong', $department->name ?? 'Not assigned')
+    html_writer::tag('strong', isset($department->name) ? format_string($department->name) : get_string('not_assigned', 'local_trainingmatrix'))
 );
 echo html_writer::tag('div', 
     html_writer::tag('span', 'Start Date: ', ['style' => 'color: var(--tm-gray-500);']) . 
-    html_writer::tag('strong', $staff->startdate ? date('d M Y', $staff->startdate) : 'Not set')
+    html_writer::tag('strong', $staff->startdate ? userdate($staff->startdate, get_string('strftimedate', 'langconfig')) : get_string('not_set', 'local_trainingmatrix'))
 );
 echo html_writer::tag('div', 
     html_writer::tag('span', 'Status: ', ['style' => 'color: var(--tm-gray-500);']) . 
@@ -194,10 +193,10 @@ if ($compliance && !empty($compliance['competencies'])) {
         
         echo html_writer::start_tag('tr');
         echo html_writer::tag('td', 
-            ($comp->code ? html_writer::tag('span', $comp->code, ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') .
+            ($comp->code ? html_writer::tag('span', s($comp->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') .
             html_writer::tag('strong', format_string($comp->name))
         );
-        echo html_writer::tag('td', $comp->category ?: '-');
+        echo html_writer::tag('td', $comp->category ? s($comp->category) : '-');
         echo html_writer::tag('td',
             html_writer::start_div('', ['style' => 'display: flex; align-items: center; gap: 8px;']) .
             html_writer::start_div('tm-progress') .
@@ -206,8 +205,8 @@ if ($compliance && !empty($compliance['competencies'])) {
             html_writer::tag('span', $comp->progress . '%', ['class' => 'tm-progress-label']) .
             html_writer::end_div()
         );
-        echo html_writer::tag('td', $comp->completion && $comp->completion->completiondate ? date('d M Y', $comp->completion->completiondate) : '-');
-        echo html_writer::tag('td', $comp->completion && $comp->completion->expirydate ? date('d M Y', $comp->completion->expirydate) : '-');
+        echo html_writer::tag('td', $comp->completion && $comp->completion->completiondate ? userdate($comp->completion->completiondate, get_string('strftimedate', 'langconfig')) : '-');
+        echo html_writer::tag('td', $comp->completion && $comp->completion->expirydate ? userdate($comp->completion->expirydate, get_string('strftimedate', 'langconfig')) : '-');
         echo html_writer::tag('td', html_writer::tag('span', $statusLabel, ['class' => 'tm-badge ' . $statusClass]));
         
         $actionBtn = '-';

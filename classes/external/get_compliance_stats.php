@@ -26,7 +26,6 @@ namespace local_trainingmatrix\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->libdir . '/externallib.php');
 require_once($CFG->dirroot . '/local/trainingmatrix/lib.php');
 
 use core_external\external_api;
@@ -63,12 +62,19 @@ class get_compliance_stats extends external_api {
             
             $stats['total_staff'] = count($staffRecords);
             $stats['fully_compliant'] = 0;
-            
+            $stats['expiring_soon'] = 0;
+            $stats['expired'] = 0;
+
             foreach ($staffRecords as $staff) {
                 $compliance = local_trainingmatrix_get_staff_compliance($staff->userid);
-                if ($compliance && $compliance['stats']['compliance_rate'] == 100 && $compliance['stats']['expired'] == 0) {
+                if (!$compliance) {
+                    continue;
+                }
+                if ($compliance['stats']['compliance_rate'] == 100 && $compliance['stats']['expired'] == 0) {
                     $stats['fully_compliant']++;
                 }
+                $stats['expiring_soon'] += $compliance['stats']['expiring_soon'];
+                $stats['expired'] += $compliance['stats']['expired'];
             }
         }
 
