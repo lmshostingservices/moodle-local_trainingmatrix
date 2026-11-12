@@ -1,3 +1,8 @@
+## [1.1.1] - 2026-11-12
+
+### Fixed
+- The compliance ring on a staff member's page showed as a solid black disc; it now draws the ring with the percentage in the middle.
+
 ## [1.1.0] - 2026-11-12
 
 Client and line-manager scoping, staff CSV import, and automatic enrolment when a position changes. Tested on Moodle 4.5 (PostgreSQL 16, PHP 8.3), upgrading from 1.0.22.

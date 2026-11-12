@@ -117,7 +117,7 @@ final class ai_client {
     public function generate(int $positionid): array {
         global $DB, $CFG;
 
-        $fail = function(string $error): array {
+        $fail = function (string $error): array {
             return ['ok' => false, 'error' => $error, 'created' => [], 'linked' => [], 'credits_used' => 0,
                 'credits_remaining' => null];
         };

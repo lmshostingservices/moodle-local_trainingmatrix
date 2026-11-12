@@ -63,7 +63,7 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
                                         WHERE $psql ORDER BY p.name", $pparams);
     $useroptions = local_trainingmatrix_user_options($staff ? [$staff->userid, $staff->managerid] : []);
     // Label client-owned definitions so a shared one is never mistaken for a client's own.
-    $deflabel = static function(stdClass $record) use ($tenancyon): string {
+    $deflabel = static function (stdClass $record) use ($tenancyon): string {
         $name = format_string($record->name);
         return ($tenancyon && (int)$record->clientid > 0) ?
             $name . ' [' . \local_trainingmatrix\local\tenancy::name((int)$record->clientid) . ']' : $name;

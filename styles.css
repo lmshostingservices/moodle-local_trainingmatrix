@@ -854,3 +854,31 @@
     font-weight: 600;
     margin: 0;
 }
+
+/* Compliance ring on the staff detail page (1.1.0): the circles had no styles and rendered as a black disc. */
+.tm-compliance-ring {
+    position: relative;
+    display: inline-block;
+    width: 120px;
+    height: 120px;
+}
+.tm-compliance-ring svg {
+    transform: rotate(-90deg);
+}
+.tm-compliance-ring circle {
+    fill: none;
+    stroke-width: 10;
+}
+.tm-compliance-ring circle.progress {
+    stroke-linecap: round;
+}
+.tm-compliance-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #0f172a;
+}
