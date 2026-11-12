@@ -31,7 +31,7 @@ $functions = [
         'description'   => 'Get compliance statistics',
         'type'          => 'read',
         'ajax'          => true,
-        'capabilities'  => 'local/trainingmatrix:viewall',
+        'capabilities'  => 'local/trainingmatrix:viewall, local/trainingmatrix:viewteam',
     ],
     'local_trainingmatrix_get_staff_completions' => [
         'classname'     => 'local_trainingmatrix\external\get_staff_completions',
@@ -55,7 +55,7 @@ $functions = [
         'description'   => 'Export compliance report',
         'type'          => 'read',
         'ajax'          => false,
-        'capabilities'  => 'local/trainingmatrix:viewall',
+        'capabilities'  => 'local/trainingmatrix:viewall, local/trainingmatrix:viewteam',
     ],
 ];
 

@@ -34,7 +34,18 @@ if ($action === 'save' && confirm_sesskey()) {
     $data->departmentid = optional_param('departmentid', 0, PARAM_INT) ?: null;
     $data->level = optional_param('level', 1, PARAM_INT);
     $data->timemodified = time();
-    
+    $competencies = array_values(array_unique(array_filter(optional_param_array('competencies', [], PARAM_INT))));
+    // Client: shared (0) or one client's own. Kept as-is when no Client portal clients exist.
+    $existingclient = $id > 0 ? (int)$DB->get_field('local_tm_positions', 'clientid', ['id' => $id]) : 0;
+    $data->clientid = \local_trainingmatrix\local\tenancy::clients() ?
+        optional_param('clientid', 0, PARAM_INT) : $existingclient;
+    $conflict = local_trainingmatrix_definition_conflict('position', $id, (int)$data->clientid,
+        ['departmentid' => $data->departmentid, 'competencyids' => $competencies]);
+    if ($conflict) {
+        redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions', 'action' => $id ? 'edit' : 'add', 'id' => $id]),
+            $conflict, null, \core\output\notification::NOTIFY_ERROR);
+    }
+
     if ($id > 0) {
         $data->id = $id;
         $DB->update_record('local_tm_positions', $data);
@@ -44,7 +55,6 @@ if ($action === 'save' && confirm_sesskey()) {
     }
     
     // Handle competency assignments: keep existing links (and their mandatory flag), add new, remove unticked.
-    $competencies = array_unique(array_filter(optional_param_array('competencies', [], PARAM_INT)));
     $current = $DB->get_records_menu('local_tm_pos_comps', ['positionid' => $id], '', 'competencyid, id');
     foreach ($competencies as $compid) {
         if (!isset($current[$compid]) && $DB->record_exists('local_tm_competencies', ['id' => $compid])) {
@@ -56,7 +66,10 @@ if ($action === 'save' && confirm_sesskey()) {
     if ($current) {
         $DB->delete_records_list('local_tm_pos_comps', 'id', array_values($current));
     }
-    
+
+    // Everyone already in this position is enrolled in any course it now requires.
+    local_trainingmatrix_notify_provision(local_trainingmatrix_provision_positions([$id]));
+
     redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions']),
         get_string('position_saved', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
 }

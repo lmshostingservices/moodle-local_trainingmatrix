@@ -33,8 +33,9 @@ $context = context_system::instance();
 require_capability('local/trainingmatrix:view', $context);
 
 $staff = $DB->get_record('local_tm_staff', ['id' => $id], '*', MUST_EXIST);
-if ((int)$staff->userid !== (int)$USER->id) {
-    require_capability('local/trainingmatrix:viewall', $context);
+if ((int)$staff->userid !== (int)$USER->id &&
+        !\local_trainingmatrix\local\scope::current(0)->contains_staff($staff)) {
+    throw new required_capability_exception($context, 'local/trainingmatrix:viewall', 'nopermissions', '');
 }
 $user = $DB->get_record('user', ['id' => $staff->userid], '*', MUST_EXIST);
 $position = $DB->get_record('local_tm_positions', ['id' => $staff->positionid]);

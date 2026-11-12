@@ -38,6 +38,16 @@ if ($action === 'save' && confirm_sesskey()) {
     $data->managerid = optional_param('managerid', 0, PARAM_INT) ?: null;
     $data->sortorder = optional_param('sortorder', 0, PARAM_INT);
     $data->timemodified = time();
+    // Client: shared (0) or one client's own. Kept as-is when no Client portal clients exist.
+    $existingclient = $id > 0 ? (int)$DB->get_field('local_tm_departments', 'clientid', ['id' => $id]) : 0;
+    $data->clientid = \local_trainingmatrix\local\tenancy::clients() ?
+        optional_param('clientid', 0, PARAM_INT) : $existingclient;
+    $conflict = local_trainingmatrix_definition_conflict('department', $id, (int)$data->clientid,
+        ['parentid' => $data->parentid]);
+    if ($conflict) {
+        redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'departments', 'action' => $id ? 'edit' : 'add', 'id' => $id]),
+            $conflict, null, \core\output\notification::NOTIFY_ERROR);
+    }
     
     if ($id > 0) {
         $data->id = $id;

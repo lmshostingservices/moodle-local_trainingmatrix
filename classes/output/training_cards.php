@@ -180,6 +180,18 @@ final class training_cards {
             learner_view::notices($notices) . '</details>';
     }
 
+    /**
+     * Does the viewer oversee anyone: all staff, or a team that currently has people in it?
+     *
+     * @param \local_trainingmatrix\local\scope|null $scope defaults to the current user's
+     * @return bool
+     */
+    public static function can_oversee(?\local_trainingmatrix\local\scope $scope = null): bool {
+        $scope = $scope ?? \local_trainingmatrix\local\scope::current();
+        return $scope->mode() === \local_trainingmatrix\local\scope::ALL ||
+            ($scope->mode() === \local_trainingmatrix\local\scope::TEAM && $scope->has_staff());
+    }
+
     /** Maximum number of people rendered in the overview; the rest are reached through the dashboard. */
     public const TEACHER_LIMIT = 25;
 
@@ -187,13 +199,15 @@ final class training_cards {
     public static function teacher(): string {
         global $DB, $CFG;
         require_once($CFG->dirroot . '/local/trainingmatrix/lib.php');
-        if (!has_capability('local/trainingmatrix:viewall', \context_system::instance())) {
+        $scope = \local_trainingmatrix\local\scope::current();
+        if (!self::can_oversee($scope)) {
             return '';
         }
         self::assets();
+        [$scopesql, $params] = $scope->staff_condition('s');
         $where = "u.deleted = 0 AND u.suspended = 0 AND EXISTS
-                (SELECT 1 FROM {local_tm_staff} s WHERE s.userid = u.id AND s.status = :status)";
-        $params = ['status' => 'active'];
+                (SELECT 1 FROM {local_tm_staff} s WHERE s.userid = u.id AND s.status = :status AND $scopesql)";
+        $params['status'] = 'active';
         $total = $DB->count_records_sql("SELECT COUNT(1) FROM {user} u WHERE $where", $params);
         $fields = \core_user\fields::for_name()->get_sql('u', false, '', '', false)->selects;
         $staff = $DB->get_records_sql("SELECT u.id, {$fields} FROM {user} u WHERE $where
@@ -201,7 +215,7 @@ final class training_cards {
         $counts = ['staff' => $total, 'awaiting' => 0, 'expiring' => 0, 'expiredrevoked' => 0];
         // Preserve the established Matrix ledger as a separate source, never as an
         // inference from the absence of expired Certificate Pro documents.
-        $matrix = local_trainingmatrix_get_compliance_stats();
+        $matrix = local_trainingmatrix_get_compliance_stats($scope);
         $rows = '';
         foreach ($staff as $person) {
             $data = \local_trainingmatrix\learner_training::for_user((int)$person->id);

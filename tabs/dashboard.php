@@ -24,8 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-// A normal learner must never receive site-wide staff statistics or expiry rows.
-if (!has_capability('local/trainingmatrix:viewall', context_system::instance())) {
+// A normal learner must never receive staff statistics or expiry rows; managers get their own team's.
+if (!$canoversee) {
     $compliance = local_trainingmatrix_get_staff_compliance($USER->id);
     if (!$compliance) {
         echo html_writer::tag('p', get_string('no_position_assigned', 'local_trainingmatrix'));
@@ -40,7 +40,7 @@ if (!has_capability('local/trainingmatrix:viewall', context_system::instance()))
     return;
 }
 
-$stats = local_trainingmatrix_get_compliance_stats();
+$stats = local_trainingmatrix_get_compliance_stats($scope);
 
 echo html_writer::start_div('tm-dashboard tm-animate-in');
 
@@ -123,17 +123,19 @@ echo html_writer::start_div('tm-card-body');
 $now = time();
 $thirtyDays = $now + (30 * 24 * 60 * 60);
 
+[$scopesql, $scopeparams] = $scope->user_condition('tc.userid');
 $upcomingExpirations = $DB->get_records_sql("
-    SELECT tc.*, c.name as competency_name, c.code as competency_code, 
+    SELECT tc.*, c.name as competency_name, c.code as competency_code,
            u.firstname, u.lastname, u.email
     FROM {local_tm_completions} tc
     JOIN {local_tm_competencies} c ON c.id = tc.competencyid
     JOIN {user} u ON u.id = tc.userid
     WHERE tc.status IN ('completed', 'expiring_soon', 'expired')
-      AND tc.expirydate IS NOT NULL 
-      AND tc.expirydate BETWEEN ? AND ?
+      AND tc.expirydate IS NOT NULL
+      AND tc.expirydate BETWEEN :now AND :soon
+      AND $scopesql
     ORDER BY tc.expirydate ASC
-", [$now, $thirtyDays], 0, 10);
+", ['now' => $now, 'soon' => $thirtyDays] + $scopeparams, 0, 10);
 
 if (empty($upcomingExpirations)) {
     echo html_writer::start_div('tm-empty');

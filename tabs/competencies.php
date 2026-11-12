@@ -84,6 +84,8 @@ if ($action === 'add' || $action === 'edit') {
     ]);
     echo html_writer::end_div();
     
+    echo local_trainingmatrix_client_form_group((int)($competency->clientid ?? $clientfilter));
+
     // Code
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('competency_code', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
@@ -191,6 +193,7 @@ if ($action === 'add' || $action === 'edit') {
     
 } else {
     // List competencies
+    [$listsql, $listparams] = $scope->definition_condition('c');
     $competencies = $DB->get_records_sql("
         SELECT c.*, 
                cc.courseid, cc.expirymonths, cc.notifydays,
@@ -199,8 +202,9 @@ if ($action === 'add' || $action === 'edit') {
         FROM {local_tm_competencies} c
         LEFT JOIN {local_tm_comp_courses} cc ON cc.competencyid = c.id
         LEFT JOIN {course} course ON course.id = cc.courseid
+        WHERE $listsql
         ORDER BY c.category, c.name
-    ");
+    ", $listparams);
     
     if (empty($competencies)) {
         echo html_writer::start_div('tm-empty');
@@ -232,7 +236,8 @@ if ($action === 'add' || $action === 'edit') {
             echo html_writer::start_tag('tr');
             echo html_writer::tag('td', 
                 ($comp->code ? html_writer::tag('span', s($comp->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') .
-                html_writer::tag('strong', format_string($comp->name))
+                html_writer::tag('strong', format_string($comp->name)) .
+                (\local_trainingmatrix\local\tenancy::clients() ? html_writer::tag('span', \local_trainingmatrix\local\tenancy::name((int)$comp->clientid), ['class' => 'tm-badge ' . ((int)$comp->clientid ? 'primary' : 'inactive'), 'style' => 'margin-left: 8px;']) : '')
             );
             echo html_writer::tag('td', $comp->category ? s($comp->category) : '-');
             echo html_writer::tag('td', $comp->course_name ? 

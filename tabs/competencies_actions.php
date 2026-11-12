@@ -35,6 +35,15 @@ if ($action === 'save' && confirm_sesskey()) {
     $data->category = optional_param('category', '', PARAM_TEXT);
     $data->mandatory = optional_param('mandatory', 0, PARAM_BOOL) ? 1 : 0;
     $data->timemodified = time();
+    // Client: shared (0) or one client's own. Kept as-is when no Client portal clients exist.
+    $existingclient = $id > 0 ? (int)$DB->get_field('local_tm_competencies', 'clientid', ['id' => $id]) : 0;
+    $data->clientid = \local_trainingmatrix\local\tenancy::clients() ?
+        optional_param('clientid', 0, PARAM_INT) : $existingclient;
+    $conflict = local_trainingmatrix_definition_conflict('competency', $id, (int)$data->clientid);
+    if ($conflict) {
+        redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies', 'action' => $id ? 'edit' : 'add', 'id' => $id]),
+            $conflict, null, \core\output\notification::NOTIFY_ERROR);
+    }
     
     if ($id > 0) {
         $data->id = $id;
@@ -83,6 +92,10 @@ if ($action === 'save' && confirm_sesskey()) {
         }
     }
     
+    // Everyone in a position that requires this competency is enrolled in its (possibly new) course.
+    $positionids = $DB->get_fieldset_select('local_tm_pos_comps', 'positionid', 'competencyid = ?', [$id]);
+    local_trainingmatrix_notify_provision(local_trainingmatrix_provision_positions($positionids));
+
     redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies']),
         get_string('competency_saved', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
 }

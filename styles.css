@@ -792,3 +792,65 @@
     .tmx[data-tmx-root] .tmx-stat { padding: 16px; }
     .tmx[data-tmx-root] :is(.tmx-footer-actions > a, .tmx-toolbar > button) { width: 100%; }
 }
+
+/* Row action menus (1.1.0). Opens to the left of the button so it stays inside scrolling table containers. */
+.tm-dropdown {
+    position: relative;
+    display: inline-block;
+}
+.tm-dropdown-menu {
+    display: none;
+    position: absolute;
+    right: calc(100% + 6px);
+    top: -4px;
+    z-index: 20;
+    min-width: 210px;
+    padding: 6px 0;
+    background: #fff;
+    border: 1px solid var(--tm-border, #e5e7eb);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+.tm-dropdown:hover .tm-dropdown-menu,
+.tm-dropdown:focus-within .tm-dropdown-menu {
+    display: block;
+}
+.tm-dropdown-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 8px 14px;
+    border: 0;
+    background: none;
+    color: #374151;
+    font-size: 14px;
+    text-align: left;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.tm-dropdown-item:hover,
+.tm-dropdown-item:focus {
+    background: #f3f4f6;
+    color: #111827;
+    text-decoration: none;
+}
+.tm-dropdown-item.danger {
+    color: #dc2626;
+}
+
+/* Client selector in the header. */
+.tm-client-filter-wrap {
+    margin-top: 12px;
+}
+.tm-client-filter-wrap form,
+.tm-client-filter-wrap .singleselect {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.tm-client-filter-wrap label {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
+    margin: 0;
+}

@@ -97,8 +97,16 @@ require(['jquery'], function ($) {
 // Show form if adding/editing
 if ($action === 'add' || $action === 'edit') {
     $position = $action === 'edit' ? $DB->get_record('local_tm_positions', ['id' => $id]) : null;
-    $departments = $DB->get_records('local_tm_departments', null, 'name', 'id, name');
-    $allCompetencies = $DB->get_records('local_tm_competencies', null, 'category, name', 'id, name, code, category');
+    // Offer shared definitions plus those of the position's own client (or the chosen client filter).
+    $formclient = $position ? (int)$position->clientid : (int)$clientfilter;
+    $defscope = $formclient ? \local_trainingmatrix\local\scope::for_client($formclient) : $scope;
+    [$dsql, $dparams] = $defscope->definition_condition('d');
+    $departments = $DB->get_records_sql("SELECT d.id, d.name, d.clientid FROM {local_tm_departments} d
+                                          WHERE $dsql ORDER BY d.name", $dparams);
+    [$csql, $cparams] = $defscope->definition_condition('c');
+    $allCompetencies = $DB->get_records_sql("SELECT c.id, c.name, c.code, c.category, c.clientid
+                                               FROM {local_tm_competencies} c
+                                              WHERE $csql ORDER BY c.category, c.name", $cparams);
     $assignedComps = $action === 'edit' ? $DB->get_records('local_tm_pos_comps', ['positionid' => $id], '', 'competencyid') : [];
     $assignedCompIds = array_keys($assignedComps);
     
@@ -124,6 +132,8 @@ if ($action === 'add' || $action === 'edit') {
     ]);
     echo html_writer::end_div();
     
+    echo local_trainingmatrix_client_form_group($formclient);
+
     // Description
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', 'Description', ['class' => 'tm-form-label']);
@@ -139,7 +149,7 @@ if ($action === 'add' || $action === 'edit') {
     echo html_writer::tag('label', get_string('position_department', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
     $deptOptions = ['' => get_string('select_department', 'local_trainingmatrix')];
     foreach ($departments as $d) {
-        $deptOptions[$d->id] = format_string($d->name);
+        $deptOptions[$d->id] = local_trainingmatrix_definition_label($d);
     }
     echo html_writer::select($deptOptions, 'departmentid', $position->departmentid ?? '', false, ['class' => 'tm-form-select']);
     echo html_writer::end_div();
@@ -182,7 +192,7 @@ if ($action === 'add' || $action === 'edit') {
                 echo html_writer::start_div('', ['style' => 'display: flex; align-items: center; padding: 6px 0;']);
                 echo html_writer::checkbox('competencies[]', $c->id, $checked, '', ['id' => 'comp_' . $c->id]);
                 echo html_writer::tag('label', 
-                    ($c->code ? html_writer::tag('span', s($c->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') . format_string($c->name),
+                    ($c->code ? html_writer::tag('span', s($c->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') . local_trainingmatrix_definition_label($c),
                     ['for' => 'comp_' . $c->id, 'style' => 'margin-left: 8px; cursor: pointer;']
                 );
                 echo html_writer::end_div();
@@ -205,15 +215,18 @@ if ($action === 'add' || $action === 'edit') {
     
 } else {
     // List positions
+    [$listsql, $listparams] = $scope->definition_condition('p');
+    [$countsql, $countparams] = $scope->staff_condition('s');
     $positions = $DB->get_records_sql("
         SELECT p.*, 
                d.name as department_name,
-               (SELECT COUNT(*) FROM {local_tm_staff} s WHERE s.positionid = p.id AND s.status = 'active') as staff_count,
+               (SELECT COUNT(*) FROM {local_tm_staff} s WHERE s.positionid = p.id AND s.status = 'active' AND $countsql) as staff_count,
                (SELECT COUNT(*) FROM {local_tm_pos_comps} pc WHERE pc.positionid = p.id) as competency_count
         FROM {local_tm_positions} p
         LEFT JOIN {local_tm_departments} d ON d.id = p.departmentid
+        WHERE $listsql
         ORDER BY d.name, p.level, p.name
-    ");
+    ", $countparams + $listparams);
     
     if (empty($positions)) {
         echo html_writer::start_div('tm-empty');
@@ -244,6 +257,7 @@ if ($action === 'add' || $action === 'edit') {
             echo html_writer::start_tag('tr');
             echo html_writer::tag('td', 
                 html_writer::tag('strong', format_string($pos->name)) .
+                (\local_trainingmatrix\local\tenancy::clients() ? html_writer::tag('span', \local_trainingmatrix\local\tenancy::name((int)$pos->clientid), ['class' => 'tm-badge ' . ((int)$pos->clientid ? 'primary' : 'inactive'), 'style' => 'margin-left: 8px;']) : '') .
                 ($pos->description ? html_writer::tag('div', s(shorten_text(html_to_text($pos->description, 0, false), 60)), ['style' => 'color: var(--tm-gray-500); font-size: 12px;']) : '')
             );
             echo html_writer::tag('td', $pos->department_name ? format_string($pos->department_name) : '-');

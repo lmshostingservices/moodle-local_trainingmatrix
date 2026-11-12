@@ -49,6 +49,27 @@ $capabilities = [
         ],
     ],
 
+    // Line managers: see the staff whose manager they are and everyone in departments they manage. Granted to every
+    // authenticated user because access comes from the data (being recorded as someone's manager), not the role.
+    'local/trainingmatrix:viewteam' => [
+        'riskbitmask' => RISK_PERSONAL,
+        'captype' => 'read',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'user' => CAP_ALLOW,
+            'manager' => CAP_ALLOW,
+        ],
+    ],
+
+    'local/trainingmatrix:import' => [
+        'riskbitmask' => RISK_PERSONAL | RISK_DATALOSS,
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+        ],
+    ],
+
     'local/trainingmatrix:manage' => [
         'riskbitmask' => RISK_SPAM | RISK_PERSONAL,
         'captype' => 'write',

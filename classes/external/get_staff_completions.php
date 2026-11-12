@@ -42,7 +42,7 @@ class get_staff_completions extends external_api {
     }
 
     public static function execute($userid = 0) {
-        global $USER;
+        global $USER, $DB;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'userid' => $userid,
@@ -53,12 +53,8 @@ class get_staff_completions extends external_api {
 
         $targetuserid = $params['userid'] > 0 ? $params['userid'] : $USER->id;
 
-        // Check capability - users can view their own, managers can view all
-        if ($targetuserid != $USER->id) {
-            require_capability('local/trainingmatrix:viewall', $context);
-        } else {
-            require_capability('local/trainingmatrix:view', $context);
-        }
+        // Own records, or anyone inside the caller's staff scope (all staff, or their own team).
+        \local_trainingmatrix\local\scope::require_view_user((int)$targetuserid);
 
         $compliance = local_trainingmatrix_get_staff_compliance($targetuserid);
 
@@ -98,7 +94,8 @@ class get_staff_completions extends external_api {
         return [
             'userid' => $targetuserid,
             'position' => $compliance['position']->name ?? '',
-            'department' => '',
+            'department' => !empty($compliance['staff']->departmentid) ?
+                (string)$DB->get_field('local_tm_departments', 'name', ['id' => $compliance['staff']->departmentid]) : '',
             'completions' => $completions,
             'stats' => [
                 'total' => $compliance['stats']['total'],

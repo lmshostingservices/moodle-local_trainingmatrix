@@ -13,6 +13,19 @@ and available training evidence.
   corresponding optional plugins are installed.
 - Provide privacy discovery, export and deletion support.
 
+## Clients and line managers
+
+- **Clients (optional).** Install the Client portal to train staff for several client organisations on one site. Departments, positions and competencies are either *Shared* (usable by every client, good for standard roles such as "WHS Induction") or belong to one client. A staff record belongs to one client, and can only use shared items or that client's own. Administrators pick a client in the header to work in it.
+- **Line managers.** Set a staff member's *Direct manager*, or a department's *Manager*. That person then sees those staff (and everyone in the department and its sub-departments) in the Matrix: Staff, Reports, statistics, exports and the Staff Training Dashboard block. No role setup is needed; it comes from the `local/trainingmatrix:viewteam` capability that every user has by default. Remove it from the Authenticated user role to switch this off.
+
+## Importing staff
+
+Use the **Import** tab to add or update many staff from a CSV file. Identify each person by `username`, `email` or `useridnumber`, give their `position`, and optionally `employeeid`, `department`, `manager`, `startdate`, `enddate`, `status` and `client`. Every row is previewed before anything changes. Each imported person is enrolled in the courses their position requires. A template is linked on the Import tab.
+
+## Automatic enrolment
+
+When someone is saved or imported as active in a position, they are enrolled (manual enrolment) in every course linked to the position's competencies. When a position gains a competency, or a competency is linked to a course, everyone already in that position is enrolled too. Each course needs an enabled manual enrolment method. Suspended enrolments are never re-activated; those people are listed in a warning.
+
 ## Requirements
 
 - Moodle 4.4 or later within the supported range declared in version.php.

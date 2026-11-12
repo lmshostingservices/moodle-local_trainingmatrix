@@ -69,15 +69,16 @@ switch ($reportType) {
         echo html_writer::end_div();
         echo html_writer::start_div('tm-card-body');
         
+        [$scopesql, $scopeparams] = $scope->staff_condition('s');
         $staffList = $DB->get_records_sql("
             SELECT s.*, u.firstname, u.lastname, u.email, p.name as position_name, d.name as department_name
             FROM {local_tm_staff} s
             JOIN {user} u ON u.id = s.userid
             LEFT JOIN {local_tm_positions} p ON p.id = s.positionid
             LEFT JOIN {local_tm_departments} d ON d.id = s.departmentid
-            WHERE s.status = 'active'
+            WHERE s.status = 'active' AND $scopesql
             ORDER BY d.name, u.lastname
-        ");
+        ", $scopeparams);
         
         if (empty($staffList)) {
             echo html_writer::tag('p', 'No active staff members found.', ['class' => 'text-muted']);
@@ -166,24 +167,28 @@ switch ($reportType) {
         $ninetyDays = $now + (90 * 24 * 60 * 60);
         
         // Expired
+        [$scopesql, $scopeparams] = $scope->user_condition('tc.userid');
         $expired = $DB->get_records_sql("
             SELECT tc.*, c.name as competency_name, c.code, u.firstname, u.lastname, u.email
             FROM {local_tm_completions} tc
             JOIN {local_tm_competencies} c ON c.id = tc.competencyid
             JOIN {user} u ON u.id = tc.userid
-            WHERE tc.status IN ('completed', 'expiring_soon', 'expired') AND tc.expirydate IS NOT NULL AND tc.expirydate < ?
+            WHERE tc.status IN ('completed', 'expiring_soon', 'expired') AND tc.expirydate IS NOT NULL
+              AND tc.expirydate < :now AND $scopesql
             ORDER BY tc.expirydate ASC
-        ", [$now]);
-        
+        ", ['now' => $now] + $scopeparams);
+
         // Expiring soon (next 30 days)
+        [$scopesql, $scopeparams] = $scope->user_condition('tc.userid');
         $expiringSoon = $DB->get_records_sql("
             SELECT tc.*, c.name as competency_name, c.code, u.firstname, u.lastname, u.email
             FROM {local_tm_completions} tc
             JOIN {local_tm_competencies} c ON c.id = tc.competencyid
             JOIN {user} u ON u.id = tc.userid
-            WHERE tc.status IN ('completed', 'expiring_soon', 'expired') AND tc.expirydate IS NOT NULL AND tc.expirydate BETWEEN ? AND ?
+            WHERE tc.status IN ('completed', 'expiring_soon', 'expired') AND tc.expirydate IS NOT NULL
+              AND tc.expirydate BETWEEN :now AND :soon AND $scopesql
             ORDER BY tc.expirydate ASC
-        ", [$now, $thirtyDays]);
+        ", ['now' => $now, 'soon' => $thirtyDays] + $scopeparams);
         
         // Summary stats
         echo html_writer::start_div('tm-stats-grid', ['style' => 'margin-bottom: 24px;']);
@@ -285,12 +290,20 @@ switch ($reportType) {
         echo html_writer::end_div();
         echo html_writer::start_div('tm-card-body');
         
+        [$defsql, $defparams] = $scope->definition_condition('d');
+        [$scopesql, $scopeparams] = $scope->staff_condition('s');
         $departments = $DB->get_records_sql("
-            SELECT d.*, 
-                   (SELECT COUNT(*) FROM {local_tm_staff} s WHERE s.departmentid = d.id AND s.status = 'active') as staff_count
+            SELECT d.*,
+                   (SELECT COUNT(*) FROM {local_tm_staff} s
+                     WHERE s.departmentid = d.id AND s.status = 'active' AND $scopesql) as staff_count
             FROM {local_tm_departments} d
+            WHERE $defsql
             ORDER BY d.name
-        ");
+        ", $scopeparams + $defparams);
+        if (!$scope->sees_all()) {
+            // Managers and client views list only departments that hold someone they can see.
+            $departments = array_filter($departments, static fn($d) => (int)$d->staff_count > 0);
+        }
         
         if (empty($departments)) {
             echo html_writer::tag('p', 'No departments configured.', ['class' => 'text-muted']);
@@ -299,7 +312,10 @@ switch ($reportType) {
             
             foreach ($departments as $dept) {
                 // Calculate department compliance
-                $staffInDept = $DB->get_records('local_tm_staff', ['departmentid' => $dept->id, 'status' => 'active']);
+                [$deptscopesql, $deptscopeparams] = $scope->staff_condition('s');
+                $staffInDept = $DB->get_records_sql("SELECT s.* FROM {local_tm_staff} s
+                    WHERE s.departmentid = :deptid AND s.status = 'active' AND $deptscopesql",
+                    ['deptid' => $dept->id] + $deptscopeparams);
                 $totalCompliance = 0;
                 $staffCount = 0;
                 $expired = 0;

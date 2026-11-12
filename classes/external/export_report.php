@@ -37,10 +37,11 @@ class export_report extends external_api {
             'format' => new external_value(PARAM_ALPHA, 'Export format: csv or excel', VALUE_DEFAULT, 'csv'),
             'departmentid' => new external_value(PARAM_INT, 'Filter by department', VALUE_DEFAULT, 0),
             'reporttype' => new external_value(PARAM_ALPHA, 'Report type: compliance, staff, expiry', VALUE_DEFAULT, 'compliance'),
+            'clientid' => new external_value(PARAM_INT, 'Client filter for staff overseers: -1 remembered choice, 0 all, or a client id', VALUE_DEFAULT, -1),
         ]);
     }
 
-    public static function execute($format = 'csv', $departmentid = 0, $reporttype = 'compliance') {
+    public static function execute($format = 'csv', $departmentid = 0, $reporttype = 'compliance', $clientid = -1) {
         global $DB, $CFG;
 
         require_once($CFG->dirroot . '/local/trainingmatrix/lib.php');
@@ -49,11 +50,15 @@ class export_report extends external_api {
             'format' => $format,
             'departmentid' => $departmentid,
             'reporttype' => $reporttype,
+            'clientid' => $clientid,
         ]);
 
         $context = \context_system::instance();
         self::validate_context($context);
-        require_capability('local/trainingmatrix:viewall', $context);
+        $scope = \local_trainingmatrix\local\scope::current($params['clientid'] >= 0 ? $params['clientid'] : null);
+        if (!$scope->is_oversight() || ($scope->mode() === \local_trainingmatrix\local\scope::TEAM && !$scope->has_staff())) {
+            throw new \required_capability_exception($context, 'local/trainingmatrix:viewall', 'nopermissions', '');
+        }
 
         if (!in_array($params['format'], ['csv', 'excel'], true) ||
                 !in_array($params['reporttype'], ['compliance', 'staff', 'expiry'], true)) {
@@ -67,12 +72,12 @@ class export_report extends external_api {
             case 'compliance':
                 $headers = ['Staff Name', 'Email', 'Position', 'Department', 'Compliance Rate', 'Completed', 'Expired', 'Expiring Soon'];
                 
-                $where = "s.status = 'active'";
-                $params_sql = [];
-                
+                [$scopesql, $params_sql] = $scope->staff_condition('s');
+                $where = "s.status = 'active' AND $scopesql";
+
                 if ($params['departmentid'] > 0) {
-                    $where .= " AND s.departmentid = ?";
-                    $params_sql[] = $params['departmentid'];
+                    $where .= " AND s.departmentid = :exdept";
+                    $params_sql['exdept'] = $params['departmentid'];
                 }
 
                 $staff = $DB->get_records_sql("
@@ -107,12 +112,13 @@ class export_report extends external_api {
                 
                 $now = time();
                 $thirtyDays = $now + (30 * 24 * 60 * 60);
-                $filter = '';
-                $filterparams = [$now, $thirtyDays];
+                [$scopesql, $scopeparams] = $scope->user_condition('tc.userid');
+                $filter = " AND $scopesql";
+                $filterparams = ['now' => $now, 'soon' => $thirtyDays] + $scopeparams;
                 if ($params['departmentid'] > 0) {
-                    $filter = ' AND EXISTS (SELECT 1 FROM {local_tm_staff} s
-                        WHERE s.userid = tc.userid AND s.departmentid = ?)';
-                    $filterparams[] = $params['departmentid'];
+                    $filter .= ' AND EXISTS (SELECT 1 FROM {local_tm_staff} s
+                        WHERE s.userid = tc.userid AND s.departmentid = :exdept)';
+                    $filterparams['exdept'] = $params['departmentid'];
                 }
 
                 $expirations = $DB->get_records_sql("
@@ -125,7 +131,7 @@ class export_report extends external_api {
                     LEFT JOIN {course} course ON course.id = tc.courseid
                     WHERE tc.status IN ('completed', 'expiring_soon')
                       AND tc.expirydate IS NOT NULL
-                      AND tc.expirydate BETWEEN ? AND ?
+                      AND tc.expirydate BETWEEN :now AND :soon
                       $filter
                     ORDER BY tc.expirydate ASC
                 ", $filterparams);
@@ -146,8 +152,12 @@ class export_report extends external_api {
 
             default: // staff
                 $headers = ['Staff Name', 'Email', 'Position', 'Department', 'Status', 'Start Date', 'Employee ID'];
-                $filter = $params['departmentid'] > 0 ? 'WHERE s.departmentid = ?' : '';
-                $filterparams = $params['departmentid'] > 0 ? [$params['departmentid']] : [];
+                [$scopesql, $filterparams] = $scope->staff_condition('s');
+                $filter = "WHERE $scopesql";
+                if ($params['departmentid'] > 0) {
+                    $filter .= ' AND s.departmentid = :exdept';
+                    $filterparams['exdept'] = $params['departmentid'];
+                }
                 
                 $staff = $DB->get_records_sql("
                     SELECT s.*, u.firstname, u.lastname, u.email, p.name as position_name, d.name as department_name

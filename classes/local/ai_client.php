@@ -115,7 +115,7 @@ final class ai_client {
      *               'credits_used' => int, 'credits_remaining' => int|null]
      */
     public function generate(int $positionid): array {
-        global $DB;
+        global $DB, $CFG;
 
         $fail = function(string $error): array {
             return ['ok' => false, 'error' => $error, 'created' => [], 'linked' => [], 'credits_used' => 0,
@@ -197,14 +197,18 @@ final class ai_client {
 
             // Match existing competencies by code or name regardless of case, so "Manual handling" and
             // "Manual Handling" do not become two competencies.
+            // Only shared competencies or the position's own client's can be reused; never another client's.
             $existing = false;
+            $fit = '(clientid = 0 OR clientid = :client)';
             if ($code !== '') {
-                $existing = $DB->get_record_select('local_tm_competencies', $DB->sql_equal('code', ':code', false),
-                    ['code' => $code], 'id', IGNORE_MULTIPLE);
+                $existing = $DB->get_record_select('local_tm_competencies',
+                    $DB->sql_equal('code', ':code', false) . " AND $fit",
+                    ['code' => $code, 'client' => (int)$position->clientid], 'id', IGNORE_MULTIPLE);
             }
             if (!$existing) {
-                $existing = $DB->get_record_select('local_tm_competencies', $DB->sql_equal('name', ':name', false),
-                    ['name' => $name], 'id', IGNORE_MULTIPLE);
+                $existing = $DB->get_record_select('local_tm_competencies',
+                    $DB->sql_equal('name', ':name', false) . " AND $fit",
+                    ['name' => $name, 'client' => (int)$position->clientid], 'id', IGNORE_MULTIPLE);
             }
             if ($existing) {
                 $compid = (int)$existing->id;
@@ -216,6 +220,7 @@ final class ai_client {
                     'category' => $category !== '' ? $category : 'Other',
                     'description' => $description,
                     'mandatory' => $mandatory,
+                    'clientid' => (int)$position->clientid,
                     'timecreated' => $now,
                     'timemodified' => $now,
                 ]);
@@ -230,6 +235,10 @@ final class ai_client {
                 ]);
             }
         }
+
+        // Reused competencies may already link a course: enrol current holders of the position in it.
+        require_once($CFG->dirroot . '/local/trainingmatrix/lib.php');
+        local_trainingmatrix_provision_positions([$positionid]);
 
         return [
             'ok' => true,

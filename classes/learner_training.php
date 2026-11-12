@@ -36,8 +36,8 @@ final class learner_training {
     public static function for_user(int $userid): array {
         global $USER, $CFG, $DB;
         require_login();
-        require_capability($userid === (int)$USER->id ? 'local/trainingmatrix:view' :
-            'local/trainingmatrix:viewall', \context_system::instance());
+        // Own records, or a subject inside the viewer's staff scope (all staff, or their own team).
+        \local_trainingmatrix\local\scope::require_view_user($userid);
         $subject = $DB->get_record('user', ['id' => $userid, 'deleted' => 0], '*', MUST_EXIST);
         require_once($CFG->libdir . '/enrollib.php');
         $result = ['items' => [], 'notices' => []];

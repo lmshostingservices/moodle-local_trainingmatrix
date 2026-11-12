@@ -36,7 +36,7 @@ class provider implements \core_privacy\local\metadata\provider,
         \core_privacy\local\request\core_userlist_provider {
     private const FIELDS = [
         'local_tm_staff' => ['userid', 'positionid', 'departmentid', 'startdate', 'enddate',
-            'status', 'managerid', 'employeeid', 'timecreated', 'timemodified'],
+            'status', 'managerid', 'employeeid', 'clientid', 'timecreated', 'timemodified'],
         'local_tm_completions' => ['userid', 'competencyid', 'courseid', 'completiondate',
             'expirydate', 'status', 'progress', 'notified', 'timecreated', 'timemodified'],
         'local_tm_notifications' => ['userid', 'completionid', 'type', 'subject', 'message',

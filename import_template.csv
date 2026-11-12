@@ -1,0 +1,3 @@
+username,email,employeeid,position,department,manager,startdate,status,client
+jsmith,,EMP001,Warehouse Operator,Warehouse,mjones,2026-01-15,active,
+,alee@example.com,EMP002,Site Supervisor,Operations,,15/02/2026,active,

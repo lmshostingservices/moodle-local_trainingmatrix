@@ -55,8 +55,45 @@ if ($action === 'save' && confirm_sesskey()) {
                 get_string('staff_duplicateactive', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_ERROR);
         }
     }
-    $DB->get_record('local_tm_positions', ['id' => $data->positionid], '*', MUST_EXIST);
+    $position = $DB->get_record('local_tm_positions', ['id' => $data->positionid], '*', MUST_EXIST);
+    $department = $data->departmentid ?
+        $DB->get_record('local_tm_departments', ['id' => $data->departmentid], '*', MUST_EXIST) : null;
     $DB->get_record('user', ['id' => $data->userid, 'deleted' => 0, 'suspended' => 0], '*', MUST_EXIST);
+    $existing = $id > 0 ? $DB->get_record('local_tm_staff', ['id' => $id], '*', MUST_EXIST) : null;
+    if ($existing && !$accessscope->contains_staff($existing)) {
+        throw new required_capability_exception($context, 'local/trainingmatrix:viewall', 'nopermissions', '');
+    }
+
+    // Client: admins choose; otherwise keep the record's client. Either way a client-owned position or department
+    // decides it when none was given, and every definition used must be shared or belong to that client.
+    $tenancyon = (bool)\local_trainingmatrix\local\tenancy::clients();
+    if ($tenancyon && $canviewall) {
+        $data->clientid = optional_param('clientid', 0, PARAM_INT);
+    } else {
+        $data->clientid = $existing ? (int)$existing->clientid : 0;
+    }
+    if (!$data->clientid) {
+        $data->clientid = (int)$position->clientid ?: ($department ? (int)$department->clientid : 0);
+    }
+    $staffreturn = new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff']);
+    if ($data->clientid && !\local_trainingmatrix\local\tenancy::exists($data->clientid)) {
+        redirect($staffreturn, get_string('client_invalid', 'local_trainingmatrix'), null,
+            \core\output\notification::NOTIFY_ERROR);
+    }
+    if (!\local_trainingmatrix\local\tenancy::fits((int)$position->clientid, $data->clientid) ||
+            ($department && !\local_trainingmatrix\local\tenancy::fits((int)$department->clientid, $data->clientid))) {
+        redirect($staffreturn, get_string('client_mismatch', 'local_trainingmatrix'), null,
+            \core\output\notification::NOTIFY_ERROR);
+    }
+    if (!\local_trainingmatrix\local\tenancy::is_learner($data->clientid, $data->userid)) {
+        redirect($staffreturn, get_string('client_notlearner', 'local_trainingmatrix',
+            \local_trainingmatrix\local\tenancy::name($data->clientid)), null, \core\output\notification::NOTIFY_ERROR);
+    }
+    // A line manager may only save records that stay inside their own team.
+    if (!$accessscope->contains_staff($data)) {
+        redirect($staffreturn, get_string('staff_outsidescope', 'local_trainingmatrix'), null,
+            \core\output\notification::NOTIFY_ERROR);
+    }
     $transaction = $DB->start_delegated_transaction();
     
     if ($id > 0) {
@@ -78,6 +115,9 @@ if ($action === 'save' && confirm_sesskey()) {
 if ($action === 'delete' && $id > 0 && confirm_sesskey()) {
     require_capability('local/trainingmatrix:assign', $context);
     $staff = $DB->get_record('local_tm_staff', ['id' => $id]);
+    if ($staff && !$accessscope->contains_staff($staff)) {
+        throw new required_capability_exception($context, 'local/trainingmatrix:viewall', 'nopermissions', '');
+    }
     if ($staff) {
         $transaction = $DB->start_delegated_transaction();
         $DB->delete_records('local_tm_staff', ['id' => $id]);

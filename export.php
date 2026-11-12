@@ -32,7 +32,7 @@ $departmentid = optional_param('departmentid', 0, PARAM_INT);
 
 require_login();
 $context = context_system::instance();
-require_capability('local/trainingmatrix:viewall', $context);
+require_capability('local/trainingmatrix:view', $context);
 $PAGE->set_context($context);
 $PAGE->set_url('/local/trainingmatrix/export.php', ['report' => $report, 'format' => $format]);
 

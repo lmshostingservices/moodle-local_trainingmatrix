@@ -37,46 +37,26 @@ class get_compliance_stats extends external_api {
     public static function execute_parameters() {
         return new external_function_parameters([
             'departmentid' => new external_value(PARAM_INT, 'Optional department filter', VALUE_DEFAULT, 0),
+            'clientid' => new external_value(PARAM_INT, 'Client filter for staff overseers: -1 remembered choice, 0 all, or a client id', VALUE_DEFAULT, -1),
         ]);
     }
 
-    public static function execute($departmentid = 0) {
+    public static function execute($departmentid = 0, $clientid = -1) {
         global $DB;
 
         $params = self::validate_parameters(self::execute_parameters(), [
             'departmentid' => $departmentid,
+            'clientid' => $clientid,
         ]);
 
         $context = \context_system::instance();
         self::validate_context($context);
-        require_capability('local/trainingmatrix:viewall', $context);
-
-        $stats = local_trainingmatrix_get_compliance_stats();
-
-        if ($params['departmentid'] > 0) {
-            // Filter by department
-            $staffRecords = $DB->get_records('local_tm_staff', [
-                'status' => 'active',
-                'departmentid' => $params['departmentid']
-            ]);
-            
-            $stats['total_staff'] = count($staffRecords);
-            $stats['fully_compliant'] = 0;
-            $stats['expiring_soon'] = 0;
-            $stats['expired'] = 0;
-
-            foreach ($staffRecords as $staff) {
-                $compliance = local_trainingmatrix_get_staff_compliance($staff->userid);
-                if (!$compliance) {
-                    continue;
-                }
-                if ($compliance['stats']['compliance_rate'] == 100 && $compliance['stats']['expired'] == 0) {
-                    $stats['fully_compliant']++;
-                }
-                $stats['expiring_soon'] += $compliance['stats']['expiring_soon'];
-                $stats['expired'] += $compliance['stats']['expired'];
-            }
+        $scope = \local_trainingmatrix\local\scope::current($params['clientid'] >= 0 ? $params['clientid'] : null);
+        if (!$scope->is_oversight() || ($scope->mode() === \local_trainingmatrix\local\scope::TEAM && !$scope->has_staff())) {
+            throw new \required_capability_exception($context, 'local/trainingmatrix:viewall', 'nopermissions', '');
         }
+
+        $stats = local_trainingmatrix_get_compliance_stats($scope, (int)$params['departmentid']);
 
         return [
             'total_staff' => $stats['total_staff'],

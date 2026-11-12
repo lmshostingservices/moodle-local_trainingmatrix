@@ -45,7 +45,9 @@ echo html_writer::end_div();
 // Show form if adding/editing
 if ($action === 'add' || $action === 'edit') {
     $department = $action === 'edit' ? $DB->get_record('local_tm_departments', ['id' => $id]) : null;
-    $allDepartments = $DB->get_records('local_tm_departments', null, 'name', 'id, name');
+    [$defsql, $defparams] = $scope->definition_condition('d');
+    $allDepartments = $DB->get_records_sql("SELECT d.id, d.name, d.clientid FROM {local_tm_departments} d
+                                             WHERE $defsql ORDER BY d.name", $defparams);
     
     echo html_writer::start_div('tm-card');
     echo html_writer::start_div('tm-card-header');
@@ -68,6 +70,8 @@ if ($action === 'add' || $action === 'edit') {
     ]);
     echo html_writer::end_div();
     
+    echo local_trainingmatrix_client_form_group((int)($department->clientid ?? $clientfilter));
+
     // Description
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', 'Description', ['class' => 'tm-form-label']);
@@ -84,7 +88,7 @@ if ($action === 'add' || $action === 'edit') {
     $parentOptions = ['' => '-- None --'];
     foreach ($allDepartments as $d) {
         if ($d->id != $id) {
-            $parentOptions[$d->id] = format_string($d->name);
+            $parentOptions[$d->id] = local_trainingmatrix_definition_label($d);
         }
     }
     echo html_writer::select($parentOptions, 'parentid', $department->parentid ?? '', false, ['class' => 'tm-form-select']);
@@ -123,17 +127,20 @@ if ($action === 'add' || $action === 'edit') {
     
 } else {
     // List departments
+    [$listsql, $listparams] = $scope->definition_condition('d');
+    [$countsql, $countparams] = $scope->staff_condition('s');
     $departments = $DB->get_records_sql("
         SELECT d.*, 
                pd.name as parent_name,
                m.id AS managerid2, m.firstname AS m_firstname, m.lastname AS m_lastname,
-               (SELECT COUNT(*) FROM {local_tm_staff} s WHERE s.departmentid = d.id AND s.status = 'active') as staff_count,
+               (SELECT COUNT(*) FROM {local_tm_staff} s WHERE s.departmentid = d.id AND s.status = 'active' AND $countsql) as staff_count,
                (SELECT COUNT(*) FROM {local_tm_positions} p WHERE p.departmentid = d.id) as position_count
         FROM {local_tm_departments} d
         LEFT JOIN {local_tm_departments} pd ON pd.id = d.parentid
         LEFT JOIN {user} m ON m.id = d.managerid
+        WHERE $listsql
         ORDER BY d.sortorder, d.name
-    ");
+    ", $countparams + $listparams);
     
     if (empty($departments)) {
         echo html_writer::start_div('tm-empty');
@@ -164,6 +171,7 @@ if ($action === 'add' || $action === 'edit') {
             echo html_writer::start_tag('tr');
             echo html_writer::tag('td', 
                 html_writer::tag('strong', format_string($dept->name)) .
+                (\local_trainingmatrix\local\tenancy::clients() ? html_writer::tag('span', \local_trainingmatrix\local\tenancy::name((int)$dept->clientid), ['class' => 'tm-badge ' . ((int)$dept->clientid ? 'primary' : 'inactive'), 'style' => 'margin-left: 8px;']) : '') .
                 ($dept->description ? html_writer::tag('div', s(shorten_text(html_to_text($dept->description, 0, false), 60)), ['style' => 'color: var(--tm-gray-500); font-size: 12px;']) : '')
             );
             echo html_writer::tag('td', $dept->parent_name ? format_string($dept->parent_name) : '-');

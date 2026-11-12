@@ -1,3 +1,23 @@
+## [1.1.0] - 2026-11-12
+
+Client and line-manager scoping, staff CSV import, and automatic enrolment when a position changes. Tested on Moodle 4.5 (PostgreSQL 16, PHP 8.3), upgrading from 1.0.22.
+
+### Added
+- **Clients.** With the Client portal installed, departments, positions and competencies can be shared or belong to one client, and each staff record can be tied to a client. Records only use shared items or their own client's. Existing records become shared / not tied to a client, which is how they worked before.
+- **Client selector** in the header for administrators. Lists, statistics, reports and exports follow it; it is remembered per user and shared with Training Pathways.
+- **Line managers.** New capability `local/trainingmatrix:viewteam`, given to every authenticated user. People see the Staff and Reports tabs, statistics, reminders and exports for the staff whose manager they are and for everyone in the departments (and sub-departments) they manage. People who manage nobody see nothing extra. The Staff Training Dashboard block works the same way.
+- **Import tab.** Upload a CSV of staff (username, email or ID number; position; employee ID, department, manager, dates, status, client). Every row is checked and previewed before anything changes; good rows are applied one at a time and enrol the person in their position's courses. Optionally creates missing positions and departments. New capability `local/trainingmatrix:import`. Template CSV included.
+- `scope` service class (`\local_trainingmatrix\local\scope`) so other plugins, such as the Client portal, can read one client's or one manager's staff with the same rules.
+
+### Changed
+- Adding a competency to a position, or linking a course to a competency, now enrols everyone already in that position in the course. People who cannot be enrolled (for example a suspended enrolment) are listed in a warning; the others are still enrolled.
+- AI-generated competencies belong to the position's client and only reuse shared competencies or that client's own.
+- Web services `get_compliance_stats` and `export_report` take an optional `clientid` and return a manager's own team for line managers. `get_staff_completions` allows a manager to read their own team and now fills in the department name.
+- Row action menus (View, Edit, Delete) now open as a menu; they were always expanded because the styles were missing.
+
+### Security
+- Sending a reminder now checks that the person is inside the sender's scope.
+
 ## [1.0.22] - 2026-11-02
 
 Full feature test on a fresh Moodle 5.3 site (CRUD, enrolment, tasks, notifications, reports, exports, AI generation, blocks).

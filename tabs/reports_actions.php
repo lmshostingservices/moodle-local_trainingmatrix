@@ -34,6 +34,10 @@ if ($action === 'remind' && confirm_sesskey()) {
                                  JOIN {local_tm_competencies} c ON c.id = tc.competencyid
                             LEFT JOIN {course} co ON co.id = tc.courseid
                                 WHERE tc.id = ?", [$completionid], MUST_EXIST);
+    // Reminders only go to people inside the sender's scope.
+    if (!$accessscope->contains_user((int)$tc->userid)) {
+        throw new required_capability_exception($context, 'local/trainingmatrix:viewall', 'nopermissions', '');
+    }
     $recipient = core_user::get_user($tc->userid, '*', MUST_EXIST);
     $a = new stdClass();
     $a->competency = format_string($tc->competency_name);

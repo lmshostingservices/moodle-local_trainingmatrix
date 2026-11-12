@@ -72,7 +72,7 @@ function local_trainingmatrix_myprofile_navigation(core_user\output\myprofile\tr
     }
 
     $staff = $DB->get_record('local_tm_staff', ['userid' => $user->id, 'status' => 'active'], '*', IGNORE_MULTIPLE);
-    if ($staff && ($iscurrentuser || has_capability('local/trainingmatrix:viewall', $context))) {
+    if ($staff && ($iscurrentuser || \local_trainingmatrix\local\scope::can_view_user((int)$user->id))) {
         $url = new moodle_url('/local/trainingmatrix/staff.php', ['id' => $staff->id]);
         $node = new core_user\output\myprofile\node('miscellaneous', 'trainingmatrix',
             get_string('trainingmatrix', 'local_trainingmatrix'), null, $url);
@@ -182,16 +182,31 @@ function local_trainingmatrix_get_staff_compliance($userid) {
  * @param int $positionid Assigned position.
  */
 function local_trainingmatrix_assign_required_courses(int $userid, int $positionid): void {
+    require_capability('local/trainingmatrix:assign', context_system::instance());
+    local_trainingmatrix_enrol_required_courses($userid, $positionid);
+}
+
+/**
+ * Enrol a learner in every course their position requires and create the tracking rows.
+ *
+ * Callers check permission first. Throws assignment_access_blocked when a course cannot take a manual enrolment or the
+ * learner has a suspended enrolment there (suspensions are never silently lifted).
+ *
+ * @param int $userid Learner.
+ * @param int $positionid Assigned position.
+ */
+function local_trainingmatrix_enrol_required_courses(int $userid, int $positionid): void {
     global $DB, $CFG;
     require_once($CFG->libdir . '/enrollib.php');
-    require_capability('local/trainingmatrix:assign', context_system::instance());
     $links = $DB->get_records_sql("
         SELECT cc.* FROM {local_tm_comp_courses} cc
         JOIN {local_tm_pos_comps} pc ON pc.competencyid = cc.competencyid
         WHERE pc.positionid = ?", [$positionid]);
     $courses = [];
     foreach ($links as $link) {
-        $courses[$link->courseid] = $link->courseid;
+        if ($DB->record_exists('course', ['id' => $link->courseid])) {
+            $courses[$link->courseid] = (int)$link->courseid;
+        }
     }
     foreach ($courses as $courseid) {
         $context = context_course::instance($courseid);
@@ -218,6 +233,9 @@ function local_trainingmatrix_assign_required_courses(int $userid, int $position
         $plugin->enrol_user($manual, $userid, $manual->roleid, time());
     }
     foreach ($links as $link) {
+        if (!isset($courses[$link->courseid])) {
+            continue;
+        }
         $key = ['userid' => $userid, 'competencyid' => $link->competencyid, 'courseid' => $link->courseid];
         if (!$DB->record_exists('local_tm_completions', $key)) {
             $DB->insert_record('local_tm_completions', (object)($key + [
@@ -227,6 +245,64 @@ function local_trainingmatrix_assign_required_courses(int $userid, int $position
     }
     foreach ($courses as $courseid) {
         local_trainingmatrix_sync_course_completion($courseid, $userid);
+    }
+}
+
+/**
+ * After a position's requirements change, enrol every active holder in any newly required course.
+ *
+ * One blocked learner never stops the others: each is tried separately and failures are reported back.
+ *
+ * @param int[] $positionids
+ * @return array ['enrolled' => int learners processed, 'failed' => string[] "Name: reason"]
+ */
+function local_trainingmatrix_provision_positions(array $positionids): array {
+    global $DB;
+    $result = ['enrolled' => 0, 'failed' => []];
+    $positionids = array_values(array_unique(array_filter(array_map('intval', $positionids))));
+    if (!$positionids) {
+        return $result;
+    }
+    [$insql, $params] = $DB->get_in_or_equal($positionids, SQL_PARAMS_NAMED);
+    $holders = $DB->get_records_sql("SELECT s.id, s.userid, s.positionid
+                                       FROM {local_tm_staff} s
+                                       JOIN {user} u ON u.id = s.userid AND u.deleted = 0 AND u.suspended = 0
+                                      WHERE s.status = 'active' AND s.positionid $insql", $params);
+    foreach ($holders as $holder) {
+        $transaction = null;
+        try {
+            $transaction = $DB->start_delegated_transaction();
+            local_trainingmatrix_enrol_required_courses((int)$holder->userid, (int)$holder->positionid);
+            $transaction->allow_commit();
+            $result['enrolled']++;
+        } catch (moodle_exception $e) {
+            // Must not run inside an outer transaction: each learner is its own unit of work.
+            if ($transaction && !$transaction->is_disposed()) {
+                try {
+                    $transaction->rollback($e);
+                } catch (moodle_exception $rethrown) {
+                    // Rollback rethrows the original exception; it is reported below.
+                    unset($rethrown);
+                }
+            }
+            $user = core_user::get_user($holder->userid);
+            $result['failed'][] = ($user ? fullname($user) : $holder->userid) . ': ' . $e->getMessage();
+        }
+    }
+    return $result;
+}
+
+/**
+ * Turn a provisioning result into a notification for the page that triggered it.
+ *
+ * @param array $result from local_trainingmatrix_provision_positions()
+ */
+function local_trainingmatrix_notify_provision(array $result): void {
+    if ($result['failed']) {
+        \core\notification::warning(get_string('provision_failed', 'local_trainingmatrix', (object)[
+            'count' => count($result['failed']),
+            'list' => s(implode('; ', array_slice($result['failed'], 0, 10))),
+        ]));
     }
 }
 
@@ -319,16 +395,31 @@ function local_trainingmatrix_sync_course_completion($courseid, $userid) {
     return true;
 }
 
-function local_trainingmatrix_get_compliance_stats() {
+/**
+ * Compliance statistics for the staff inside a scope.
+ *
+ * @param \local_trainingmatrix\local\scope|null $scope null = every active staff record (legacy behaviour)
+ * @param int $departmentid optional department filter
+ * @return array
+ */
+function local_trainingmatrix_get_compliance_stats(?\local_trainingmatrix\local\scope $scope = null,
+        int $departmentid = 0) {
     global $DB;
 
-    $now = time();
-    $soonThreshold = $now + (30 * 24 * 60 * 60);
-
-    $totalStaff = $DB->count_records('local_tm_staff', ['status' => 'active']);
+    $where = "s.status = 'active'";
+    $params = [];
+    if ($scope) {
+        [$scopesql, $params] = $scope->staff_condition('s');
+        $where .= " AND $scopesql";
+    }
+    if ($departmentid > 0) {
+        $where .= ' AND s.departmentid = :tmdept';
+        $params['tmdept'] = $departmentid;
+    }
+    $staffRecords = $DB->get_records_sql("SELECT s.* FROM {local_tm_staff} s WHERE $where", $params);
 
     $stats = [
-        'total_staff' => $totalStaff,
+        'total_staff' => count($staffRecords),
         'fully_compliant' => 0,
         'expiring_soon' => 0,
         'expired' => 0,
@@ -336,7 +427,6 @@ function local_trainingmatrix_get_compliance_stats() {
         'not_started' => 0,
     ];
 
-    $staffRecords = $DB->get_records('local_tm_staff', ['status' => 'active']);
     foreach ($staffRecords as $staff) {
         $compliance = local_trainingmatrix_get_staff_compliance($staff->userid);
         if ($compliance && $compliance['stats']['compliance_rate'] == 100 && $compliance['stats']['expired'] == 0) {
@@ -378,4 +468,111 @@ function local_trainingmatrix_user_options(array $selected = [], int $limit = 50
         $options[$u->id] = fullname($u) . ' (' . $u->email . ')';
     }
     return $options;
+}
+
+/**
+ * Client field for a definition form (department, position, competency). Empty when no Client portal clients exist.
+ *
+ * @param int $selected current client id, 0 = shared
+ * @return string HTML
+ */
+function local_trainingmatrix_client_form_group(int $selected): string {
+    if (!\local_trainingmatrix\local\tenancy::clients()) {
+        return '';
+    }
+    return html_writer::div(
+        html_writer::tag('label', get_string('client', 'local_trainingmatrix'), ['class' => 'tm-form-label']) .
+        html_writer::select(\local_trainingmatrix\local\tenancy::definition_options(), 'clientid', $selected, false,
+            ['class' => 'tm-form-select']) .
+        html_writer::tag('div', get_string('client_definition_help', 'local_trainingmatrix'), ['class' => 'tm-muted small']),
+        'tm-form-group');
+}
+
+/**
+ * A definition's display name, with its client in brackets when it belongs to one.
+ *
+ * @param stdClass $record with name and clientid
+ * @return string already formatted
+ */
+function local_trainingmatrix_definition_label(stdClass $record): string {
+    $name = format_string($record->name);
+    if (!empty($record->clientid) && \local_trainingmatrix\local\tenancy::clients()) {
+        $name .= ' [' . \local_trainingmatrix\local\tenancy::name((int)$record->clientid) . ']';
+    }
+    return $name;
+}
+
+/**
+ * Check a definition's client against everything it points at and everything that points at it.
+ *
+ * Rule: a record may only use definitions that are shared or belong to its own client. So a client's department can sit
+ * under a shared parent, but a shared position cannot sit in a client's department, and a client's competency can only
+ * be required by that client's positions.
+ *
+ * @param string $type department, position or competency
+ * @param int $id record id, 0 when new
+ * @param int $clientid proposed client, 0 = shared
+ * @param array $refs ids the record will point at: parentid, departmentid, competencyids
+ * @return string|null error message, or null when consistent
+ */
+function local_trainingmatrix_definition_conflict(string $type, int $id, int $clientid, array $refs = []): ?string {
+    global $DB;
+    $fits = static fn(int $owner, int $user) => \local_trainingmatrix\local\tenancy::fits($owner, $user);
+    $bad = static fn(string $what) => get_string('client_conflict', 'local_trainingmatrix', $what);
+    if ($clientid > 0 && !\local_trainingmatrix\local\tenancy::exists($clientid)) {
+        return get_string('client_invalid', 'local_trainingmatrix');
+    }
+
+    // What this record points at.
+    if (!empty($refs['parentid'])) {
+        $parent = (int)$DB->get_field('local_tm_departments', 'clientid', ['id' => $refs['parentid']]);
+        if (!$fits($parent, $clientid)) {
+            return $bad(get_string('parent_department', 'local_trainingmatrix'));
+        }
+    }
+    if (!empty($refs['departmentid'])) {
+        $dept = (int)$DB->get_field('local_tm_departments', 'clientid', ['id' => $refs['departmentid']]);
+        if (!$fits($dept, $clientid)) {
+            return $bad(get_string('departments', 'local_trainingmatrix'));
+        }
+    }
+    if (!empty($refs['competencyids'])) {
+        [$insql, $params] = $DB->get_in_or_equal($refs['competencyids'], SQL_PARAMS_NAMED);
+        foreach ($DB->get_fieldset_select('local_tm_competencies', 'clientid', "id $insql", $params) as $comp) {
+            if (!$fits((int)$comp, $clientid)) {
+                return $bad(get_string('competencies', 'local_trainingmatrix'));
+            }
+        }
+    }
+    if (!$id || $clientid === 0) {
+        // A new record has no dependants, and a shared record fits every dependant.
+        return null;
+    }
+
+    // What points at this record: each dependant must be the same client.
+    $dependants = [
+        'department' => [
+            ['local_tm_departments', 'parentid', 'departments'],
+            ['local_tm_positions', 'departmentid', 'positions'],
+            ['local_tm_staff', 'departmentid', 'staff'],
+        ],
+        'position' => [
+            ['local_tm_staff', 'positionid', 'staff'],
+        ],
+        'competency' => [],
+    ];
+    foreach ($dependants[$type] as [$table, $field, $label]) {
+        if ($DB->record_exists_select($table, "$field = :id AND clientid <> :client",
+                ['id' => $id, 'client' => $clientid])) {
+            return $bad(get_string($label, 'local_trainingmatrix'));
+        }
+    }
+    if ($type === 'competency') {
+        $sql = "SELECT 1 FROM {local_tm_pos_comps} pc JOIN {local_tm_positions} p ON p.id = pc.positionid
+                 WHERE pc.competencyid = :id AND p.clientid <> :client";
+        if ($DB->record_exists_sql($sql, ['id' => $id, 'client' => $clientid])) {
+            return $bad(get_string('positions', 'local_trainingmatrix'));
+        }
+    }
+    return null;
 }

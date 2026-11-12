@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/trainingmatrix/db" VERSION="20251217" COMMENT="Training Matrix HCM tables">
+<XMLDB PATH="local/trainingmatrix/db" VERSION="20261112" COMMENT="Training Matrix HCM tables">
   <TABLES>
     <!-- Departments -->
     <TABLE NAME="local_tm_departments" COMMENT="Organisation departments">
@@ -10,6 +10,7 @@
         <FIELD NAME="parentid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Parent department for hierarchy"/>
         <FIELD NAME="managerid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Department manager user ID"/>
         <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="clientid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" COMMENT="Client portal client id; 0 = shared across all clients"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>
@@ -18,6 +19,9 @@
         <KEY NAME="parentid" TYPE="foreign" FIELDS="parentid" REFTABLE="local_tm_departments" REFFIELDS="id"/>
         <KEY NAME="managerid" TYPE="foreign" FIELDS="managerid" REFTABLE="user" REFFIELDS="id"/>
       </KEYS>
+      <INDEXES>
+        <INDEX NAME="clientid" UNIQUE="false" FIELDS="clientid"/>
+      </INDEXES>
     </TABLE>
 
     <!-- Positions/Job Roles -->
@@ -28,6 +32,7 @@
         <FIELD NAME="description" TYPE="text" NOTNULL="false"/>
         <FIELD NAME="departmentid" TYPE="int" LENGTH="10" NOTNULL="false"/>
         <FIELD NAME="level" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="1" COMMENT="Position level 1-10"/>
+        <FIELD NAME="clientid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" COMMENT="Client portal client id; 0 = shared across all clients"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>
@@ -35,6 +40,9 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         <KEY NAME="departmentid" TYPE="foreign" FIELDS="departmentid" REFTABLE="local_tm_departments" REFFIELDS="id"/>
       </KEYS>
+      <INDEXES>
+        <INDEX NAME="clientid" UNIQUE="false" FIELDS="clientid"/>
+      </INDEXES>
     </TABLE>
 
     <!-- Competencies -->
@@ -46,6 +54,7 @@
         <FIELD NAME="description" TYPE="text" NOTNULL="false"/>
         <FIELD NAME="category" TYPE="char" LENGTH="100" NOTNULL="false" COMMENT="e.g. Safety, Technical, Leadership"/>
         <FIELD NAME="mandatory" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1"/>
+        <FIELD NAME="clientid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" COMMENT="Client portal client id; 0 = shared across all clients"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>
@@ -55,6 +64,7 @@
       <INDEXES>
         <INDEX NAME="code" UNIQUE="false" FIELDS="code"/>
         <INDEX NAME="category" UNIQUE="false" FIELDS="category"/>
+        <INDEX NAME="clientid" UNIQUE="false" FIELDS="clientid"/>
       </INDEXES>
     </TABLE>
 
@@ -109,6 +119,7 @@
         <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="active" COMMENT="active, inactive, terminated"/>
         <FIELD NAME="managerid" TYPE="int" LENGTH="10" NOTNULL="false" COMMENT="Direct manager"/>
         <FIELD NAME="employeeid" TYPE="char" LENGTH="50" NOTNULL="false" COMMENT="Employee ID number"/>
+        <FIELD NAME="clientid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" COMMENT="Client portal client id; 0 = not tied to a client"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>
@@ -122,6 +133,8 @@
       <INDEXES>
         <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
         <INDEX NAME="user_pos" UNIQUE="false" FIELDS="userid, positionid"/>
+        <INDEX NAME="clientid" UNIQUE="false" FIELDS="clientid"/>
+        <INDEX NAME="employeeid" UNIQUE="false" FIELDS="employeeid"/>
       </INDEXES>
     </TABLE>
 
