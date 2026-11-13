@@ -18,6 +18,7 @@ namespace local_trainingmatrix;
 
 defined('MOODLE_INTERNAL') || die();
 
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\learner_training::class)]
 /**
  * Core integration coverage, runnable in an installed Moodle PHPUnit environment.
  *
@@ -26,7 +27,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \local_trainingmatrix\learner_training
  */
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\learner_training::class)]
 final class learner_training_test extends \advanced_testcase {
     public function test_subject_projection_rejects_unprivileged_actor_without_identity_change(): void {
         global $USER;

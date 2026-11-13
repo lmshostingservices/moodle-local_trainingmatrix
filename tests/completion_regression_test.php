@@ -18,6 +18,9 @@ namespace local_trainingmatrix;
 
 defined('MOODLE_INTERNAL') || die();
 
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_get_staff_compliance')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_sync_course_completion')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\external\export_report::class)]
 /**
  * Regression coverage for completion status and exports.
  *
@@ -28,9 +31,6 @@ defined('MOODLE_INTERNAL') || die();
  * @covers ::local_trainingmatrix_sync_course_completion
  * @covers \local_trainingmatrix\external\export_report
  */
-#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_get_staff_compliance')]
-#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_sync_course_completion')]
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\external\export_report::class)]
 final class completion_regression_test extends \advanced_testcase {
     /**
      * Completion status remains stable across expiry jobs.

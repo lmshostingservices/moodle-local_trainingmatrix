@@ -25,6 +25,8 @@ global $CFG;
 require_once($CFG->dirroot . '/local/trainingmatrix/lib.php');
 require_once($CFG->dirroot . '/cohort/lib.php');
 
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\scope::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\tenancy::class)]
 /**
  * Client and team scoping.
  *
@@ -34,8 +36,6 @@ require_once($CFG->dirroot . '/cohort/lib.php');
  * @covers \local_trainingmatrix\local\scope
  * @covers \local_trainingmatrix\local\tenancy
  */
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\scope::class)]
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\tenancy::class)]
 final class scope_test extends \advanced_testcase {
     /**
      * Reset caches between tests.

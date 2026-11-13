@@ -16,6 +16,11 @@
 
 namespace local_trainingmatrix;
 
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\ai_client::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\external\get_compliance_stats::class)]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_expiry_date')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_get_staff_compliance')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_user_options')]
 /**
  * Regression tests for defects fixed in 1.0.21.
  *
@@ -28,11 +33,6 @@ namespace local_trainingmatrix;
  * @covers ::local_trainingmatrix_get_staff_compliance
  * @covers ::local_trainingmatrix_user_options
  */
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\ai_client::class)]
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\external\get_compliance_stats::class)]
-#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_expiry_date')]
-#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_get_staff_compliance')]
-#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_user_options')]
 final class regression_test extends \advanced_testcase {
     /**
      * Load the library.

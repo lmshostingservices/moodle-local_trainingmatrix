@@ -25,6 +25,7 @@ global $CFG;
 require_once($CFG->libdir . '/csvlib.class.php');
 require_once($CFG->dirroot . '/cohort/lib.php');
 
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\staff_import::class)]
 /**
  * Staff CSV import.
  *
@@ -33,7 +34,6 @@ require_once($CFG->dirroot . '/cohort/lib.php');
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \local_trainingmatrix\local\staff_import
  */
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\staff_import::class)]
 final class staff_import_test extends \advanced_testcase {
     /**
      * Reset caches between tests.
