@@ -19,56 +19,80 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 // Form actions for the departments tab. Included by index.php before any output so redirect() works.
 
-// Handle form submissions
+// Handle form submissions.
 if ($action === 'save' && confirm_sesskey()) {
     $data = new stdClass();
     $data->name = required_param('name', PARAM_TEXT);
     $data->description = optional_param('description', '', PARAM_CLEANHTML);
     $data->parentid = optional_param('parentid', 0, PARAM_INT) ?: null;
-    if ($data->parentid && ($data->parentid == $id || !$DB->record_exists('local_tm_departments', ['id' => $data->parentid]))) {
+    if (
+        $data->parentid && ($data->parentid == $id || !$DB->record_exists(
+            'local_trainingmatrix_dept',
+            ['id' => $data->parentid]
+        ))
+    ) {
         $data->parentid = null;
     }
     $data->managerid = optional_param('managerid', 0, PARAM_INT) ?: null;
     $data->sortorder = optional_param('sortorder', 0, PARAM_INT);
     $data->timemodified = time();
     // Client: shared (0) or one client's own. Kept as-is when no Client portal clients exist.
-    $existingclient = $id > 0 ? (int)$DB->get_field('local_tm_departments', 'clientid', ['id' => $id]) : 0;
+    $existingclient = $id > 0 ? (int)$DB->get_field('local_trainingmatrix_dept', 'clientid', ['id' => $id]) : 0;
     $data->clientid = \local_trainingmatrix\local\tenancy::clients() ?
         optional_param('clientid', 0, PARAM_INT) : $existingclient;
-    $conflict = local_trainingmatrix_definition_conflict('department', $id, (int)$data->clientid,
-        ['parentid' => $data->parentid]);
+    $conflict = local_trainingmatrix_definition_conflict(
+        'department',
+        $id,
+        (int)$data->clientid,
+        ['parentid' => $data->parentid]
+    );
     if ($conflict) {
-        redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'departments', 'action' => $id ? 'edit' : 'add', 'id' => $id]),
-            $conflict, null, \core\output\notification::NOTIFY_ERROR);
+        redirect(
+            new moodle_url(
+                '/local/trainingmatrix/index.php',
+                ['tab' => 'departments', 'action' => $id ? 'edit' : 'add', 'id' => $id]
+            ),
+            $conflict,
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
     }
-    
+
     if ($id > 0) {
         $data->id = $id;
-        $DB->update_record('local_tm_departments', $data);
+        $DB->update_record('local_trainingmatrix_dept', $data);
     } else {
         $data->timecreated = time();
-        $DB->insert_record('local_tm_departments', $data);
+        $DB->insert_record('local_trainingmatrix_dept', $data);
     }
-    
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'departments']),
-        get_string('department_saved', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
+
+    redirect(
+        new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'departments']),
+        get_string('department_saved', 'local_trainingmatrix'),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 }
 
 if ($action === 'delete' && $id > 0 && confirm_sesskey()) {
     $transaction = $DB->start_delegated_transaction();
     // Detach dependants so no record points at a deleted department.
-    $DB->set_field('local_tm_departments', 'parentid', null, ['parentid' => $id]);
-    $DB->set_field('local_tm_positions', 'departmentid', null, ['departmentid' => $id]);
-    $DB->set_field('local_tm_staff', 'departmentid', null, ['departmentid' => $id]);
-    $DB->delete_records('local_tm_departments', ['id' => $id]);
+    $DB->set_field('local_trainingmatrix_dept', 'parentid', null, ['parentid' => $id]);
+    $DB->set_field('local_trainingmatrix_pos', 'departmentid', null, ['departmentid' => $id]);
+    $DB->set_field('local_trainingmatrix_staff', 'departmentid', null, ['departmentid' => $id]);
+    $DB->delete_records('local_trainingmatrix_dept', ['id' => $id]);
     $transaction->allow_commit();
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'departments']),
-        get_string('department_deleted', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
+    redirect(
+        new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'departments']),
+        get_string('department_deleted', 'local_trainingmatrix'),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 }

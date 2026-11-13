@@ -19,7 +19,7 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -48,8 +48,11 @@ if ($iid) {
         return;
     }
     if ($file['unknown']) {
-        echo $OUTPUT->notification(get_string('import_unknowncols', 'local_trainingmatrix',
-            s(implode(', ', $file['unknown']))), 'warning');
+        echo $OUTPUT->notification(get_string(
+            'import_unknowncols',
+            'local_trainingmatrix',
+            s(implode(', ', $file['unknown']))
+        ), 'warning');
     }
 
     $counts = ['create' => 0, 'update' => 0, 'error' => 0];
@@ -61,7 +64,8 @@ if ($iid) {
         echo html_writer::div(
             html_writer::div($counts[$key], 'tm-stat-value') .
             html_writer::div(get_string('import_count_' . $key, 'local_trainingmatrix'), 'tm-stat-label'),
-            'tm-stat-card ' . $tone);
+            'tm-stat-card ' . $tone
+        );
     }
     echo html_writer::end_div();
 
@@ -92,8 +96,11 @@ if ($iid) {
                 \local_trainingmatrix\local\tenancy::name($plan->clientid) : get_string('client_none', 'local_trainingmatrix'),
             s($plan->positionname),
             s($plan->departmentname) ?: '-',
-            html_writer::tag('span', get_string('import_action_' . $plan->action, 'local_trainingmatrix'),
-                ['class' => 'tm-badge ' . $tones[$plan->action]]),
+            html_writer::tag(
+                'span',
+                get_string('import_action_' . $plan->action, 'local_trainingmatrix'),
+                ['class' => 'tm-badge ' . $tones[$plan->action]]
+            ),
             $notes ?: '-',
         ];
     }
@@ -103,8 +110,10 @@ if ($iid) {
     if ($counts['create'] + $counts['update']) {
         echo html_writer::start_tag('form', ['method' => 'post', 'action' =>
             (new moodle_url('/local/trainingmatrix/index.php'))->out(false)]);
-        foreach (['tab' => 'import', 'action' => 'confirm', 'iid' => $iid, 'clientid' => $previewclient,
-                'createmissing' => (int)$createmissing, 'sesskey' => sesskey()] as $name => $value) {
+        foreach (
+            ['tab' => 'import', 'action' => 'confirm', 'iid' => $iid, 'clientid' => $previewclient,
+                'createmissing' => (int)$createmissing, 'sesskey' => sesskey()] as $name => $value
+        ) {
             echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => $name, 'value' => $value]);
         }
         echo html_writer::empty_tag('input', ['type' => 'submit', 'class' => 'tm-btn tm-btn-primary',
@@ -114,8 +123,11 @@ if ($iid) {
     echo html_writer::link($back, get_string('cancel'), ['class' => 'tm-btn tm-btn-secondary']);
     echo html_writer::end_div();
     if ($counts['error']) {
-        echo html_writer::tag('p', get_string('import_errorsskipped', 'local_trainingmatrix'),
-            ['class' => 'tm-muted small mt-2']);
+        echo html_writer::tag(
+            'p',
+            get_string('import_errorsskipped', 'local_trainingmatrix'),
+            ['class' => 'tm-muted small mt-2']
+        );
     }
     echo html_writer::end_div();
     return;
@@ -134,14 +146,17 @@ foreach (\local_trainingmatrix\local\staff_import::COLUMNS as $column) {
     $columns->data[] = [html_writer::tag('code', $column), get_string('import_help_' . $column, 'local_trainingmatrix')];
 }
 echo html_writer::div(html_writer::table($columns), 'tm-table-container mb-3');
-echo html_writer::tag('p', html_writer::link(new moodle_url('/local/trainingmatrix/import_template.csv'),
+echo html_writer::tag('p', html_writer::link(
+    new moodle_url('/local/trainingmatrix/import_template.csv'),
     html_writer::tag('i', '', ['class' => 'fa fa-download mr-2']) . get_string('import_template', 'local_trainingmatrix'),
-    ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']));
+    ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']
+));
 
 if (!isset($importform)) {
     $importform = new \local_trainingmatrix\form\import_form(
         new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'import', 'action' => 'upload']),
-        ['clientid' => $clientfilter]);
+        ['clientid' => $clientfilter]
+    );
 }
 echo html_writer::div($importform->render(), 'tm-card tm-card-body');
 echo html_writer::end_div();

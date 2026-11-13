@@ -19,7 +19,7 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -29,25 +29,27 @@ $id = optional_param('id', 0, PARAM_INT);
 
 echo html_writer::start_div('tm-competencies tm-animate-in');
 
-// Header with add button
+// Header with add button.
 echo html_writer::start_div('tm-card-header', ['style' => 'padding: 0; margin-bottom: 24px; border: none;']);
-echo html_writer::tag('h3', 
-    html_writer::tag('i', '', ['class' => 'fa fa-certificate mr-2']) . 
-    get_string('competencies', 'local_trainingmatrix'), 
+echo html_writer::tag(
+    'h3',
+    html_writer::tag('i', '', ['class' => 'fa fa-certificate mr-2']) .
+    get_string('competencies', 'local_trainingmatrix'),
     ['class' => 'tm-card-title']
 );
-echo html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies', 'action' => 'add']),
+echo html_writer::link(
+    new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies', 'action' => 'add']),
     html_writer::tag('i', '', ['class' => 'fa fa-plus mr-2']) . get_string('add_competency', 'local_trainingmatrix'),
     ['class' => 'tm-btn tm-btn-primary']
 );
 echo html_writer::end_div();
 
-// Show form if adding/editing
+// Show form if adding/editing.
 if ($action === 'add' || $action === 'edit') {
-    $competency = $action === 'edit' ? $DB->get_record('local_tm_competencies', ['id' => $id]) : null;
-    $courseLink = $action === 'edit' ? $DB->get_record('local_tm_comp_courses', ['competencyid' => $id]) : null;
-    
-    // Get all courses
+    $competency = $action === 'edit' ? $DB->get_record('local_trainingmatrix_comp', ['id' => $id]) : null;
+    $courselink = $action === 'edit' ? $DB->get_record('local_trainingmatrix_compcrs', ['competencyid' => $id]) : null;
+
+    // Get all courses.
     $courses = $DB->get_records_sql("
         SELECT c.id, c.fullname, c.shortname, cat.name as category_name
         FROM {course} c
@@ -55,23 +57,33 @@ if ($action === 'add' || $action === 'edit') {
         WHERE c.id > 1
         ORDER BY cat.name, c.fullname
     ");
-    
+
     echo html_writer::start_div('tm-card');
     echo html_writer::start_div('tm-card-header');
-    echo html_writer::tag('h4', $action === 'edit' ? get_string('edit_competency', 'local_trainingmatrix') : get_string('add_competency', 'local_trainingmatrix'), ['class' => 'tm-card-title']);
+    echo html_writer::tag(
+        'h4',
+        $action === 'edit' ? get_string(
+            'edit_competency',
+            'local_trainingmatrix'
+        ) : get_string('add_competency', 'local_trainingmatrix'),
+        ['class' => 'tm-card-title']
+    );
     echo html_writer::end_div();
     echo html_writer::start_div('tm-card-body');
-    
-    $formUrl = new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies', 'action' => 'save', 'id' => $id, 'sesskey' => sesskey()]);
-    echo html_writer::start_tag('form', ['method' => 'post', 'action' => $formUrl->out(false)]);
-    
-    // Two column layout
+
+    $formurl = new moodle_url(
+        '/local/trainingmatrix/index.php',
+        ['tab' => 'competencies', 'action' => 'save', 'id' => $id, 'sesskey' => sesskey()]
+    );
+    echo html_writer::start_tag('form', ['method' => 'post', 'action' => $formurl->out(false)]);
+
+    // Two column layout.
     echo html_writer::start_div('', ['style' => 'display: grid; grid-template-columns: 1fr 1fr; gap: 24px;']);
-    
-    // Left column
+
+    // Left column.
     echo html_writer::start_div();
-    
-    // Name
+
+    // Name.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('competency_name', 'local_trainingmatrix') . ' *', ['class' => 'tm-form-label']);
     echo html_writer::empty_tag('input', [
@@ -83,10 +95,10 @@ if ($action === 'add' || $action === 'edit') {
         'placeholder' => 'e.g. Work at Heights, First Aid',
     ]);
     echo html_writer::end_div();
-    
+
     echo local_trainingmatrix_client_form_group((int)($competency->clientid ?? $clientfilter));
 
-    // Code
+    // Code.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('competency_code', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
     echo html_writer::empty_tag('input', [
@@ -97,11 +109,11 @@ if ($action === 'add' || $action === 'edit') {
         'placeholder' => 'e.g. WHS001, FIRST-AID',
     ]);
     echo html_writer::end_div();
-    
-    // Category
+
+    // Category.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('competency_category', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
-    $categoryOptions = [
+    $categoryoptions = [
         '' => '-- Select Category --',
         'Safety' => get_string('category_safety', 'local_trainingmatrix'),
         'Technical' => get_string('category_technical', 'local_trainingmatrix'),
@@ -111,66 +123,82 @@ if ($action === 'add' || $action === 'edit') {
         'Induction' => get_string('category_induction', 'local_trainingmatrix'),
         'Other' => get_string('category_other', 'local_trainingmatrix'),
     ];
-    echo html_writer::select($categoryOptions, 'category', $competency->category ?? '', false, ['class' => 'tm-form-select']);
+    echo html_writer::select($categoryoptions, 'category', $competency->category ?? '', false, ['class' => 'tm-form-select']);
     echo html_writer::end_div();
-    
-    // Mandatory
+
+    // Mandatory.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', '', ['class' => 'tm-form-label']);
     echo html_writer::start_div('', ['style' => 'display: flex; align-items: center; gap: 8px;']);
     echo html_writer::checkbox('mandatory', 1, $competency->mandatory ?? true, '', ['id' => 'mandatory']);
-    echo html_writer::tag('label', 'This competency is mandatory for compliance', ['for' => 'mandatory', 'style' => 'cursor: pointer;']);
+    echo html_writer::tag(
+        'label',
+        'This competency is mandatory for compliance',
+        ['for' => 'mandatory', 'style' => 'cursor: pointer;']
+    );
     echo html_writer::end_div();
     echo html_writer::end_div();
-    
-    echo html_writer::end_div(); // Left column
-    
-    // Right column
+
+    echo html_writer::end_div(); // Left column.
+
+    // Right column.
     echo html_writer::start_div();
-    
-    // Linked Course
+
+    // Linked Course.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('linked_course', 'local_trainingmatrix') . ' *', ['class' => 'tm-form-label']);
-    $courseOptions = ['' => get_string('select_course', 'local_trainingmatrix')];
+    $courseoptions = ['' => get_string('select_course', 'local_trainingmatrix')];
     foreach ($courses as $c) {
-        $courseOptions[$c->id] = format_string($c->fullname) . ' [' . format_string($c->shortname) . ']';
+        $courseoptions[$c->id] = format_string($c->fullname) . ' [' . format_string($c->shortname) . ']';
     }
-    echo html_writer::select($courseOptions, 'courseid', $courseLink->courseid ?? '', false, ['class' => 'tm-form-select']);
-    echo html_writer::tag('div', 'The Moodle course that provides this competency', ['style' => 'color: var(--tm-gray-500); font-size: 12px; margin-top: 4px;']);
+    echo html_writer::select($courseoptions, 'courseid', $courselink->courseid ?? '', false, ['class' => 'tm-form-select']);
+    echo html_writer::tag(
+        'div',
+        'The Moodle course that provides this competency',
+        ['style' => 'color: var(--tm-gray-500); font-size: 12px; margin-top: 4px;']
+    );
     echo html_writer::end_div();
-    
-    // Expiry Months
+
+    // Expiry Months.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('expiry_months', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
     echo html_writer::empty_tag('input', [
         'type' => 'number',
         'name' => 'expirymonths',
         'class' => 'tm-form-input',
-        'value' => $courseLink->expirymonths ?? 12,
+        'value' => $courselink->expirymonths ?? 12,
         'min' => 0,
         'max' => 600,
     ]);
-    echo html_writer::tag('div', get_string('tooltip_expiry_months', 'local_trainingmatrix'), ['style' => 'color: var(--tm-gray-500); font-size: 12px; margin-top: 4px;']);
+    echo html_writer::tag(
+        'div',
+        get_string('tooltip_expiry_months', 'local_trainingmatrix'),
+        ['style' => 'color: var(--tm-gray-500); font-size: 12px; margin-top: 4px;']
+    );
     echo html_writer::end_div();
-    
-    // Notify Days
+
+    // Notify Days.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('notify_days', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
     echo html_writer::empty_tag('input', [
         'type' => 'number',
         'name' => 'notifydays',
         'class' => 'tm-form-input',
-        'value' => $courseLink->notifydays ?? 30,
+        'value' => $courselink->notifydays ?? 30,
         'min' => 1,
         'max' => 90,
     ]);
-    echo html_writer::tag('div', get_string('tooltip_notify_days', 'local_trainingmatrix'), ['style' => 'color: var(--tm-gray-500); font-size: 12px; margin-top: 4px;']);
+    echo html_writer::tag(
+        'div',
+        get_string('tooltip_notify_days', 'local_trainingmatrix'),
+        ['style' => 'color: var(--tm-gray-500); font-size: 12px; margin-top: 4px;']
+    );
     echo html_writer::end_div();
-    
-    echo html_writer::end_div(); // Right column
-    echo html_writer::end_div(); // Grid
-    
-    // Description (full width)
+
+    echo html_writer::end_div(); // Right column.
+    echo html_writer::end_div(); // Grid.
+
+    // Description (full width).
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', 'Description', ['class' => 'tm-form-label']);
     echo html_writer::tag('textarea', s($competency->description ?? ''), [
@@ -179,39 +207,46 @@ if ($action === 'add' || $action === 'edit') {
         'rows' => 3,
     ]);
     echo html_writer::end_div();
-    
-    // Buttons
+
+    // Buttons.
     echo html_writer::start_div('', ['style' => 'display: flex; gap: 12px; margin-top: 24px;']);
     echo html_writer::empty_tag('input', ['type' => 'submit', 'class' => 'tm-btn tm-btn-primary', 'value' => 'Save Competency']);
-    echo html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies']),
-        'Cancel', ['class' => 'tm-btn tm-btn-secondary']);
+    echo html_writer::link(
+        new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies']),
+        'Cancel',
+        ['class' => 'tm-btn tm-btn-secondary']
+    );
     echo html_writer::end_div();
-    
+
     echo html_writer::end_tag('form');
     echo html_writer::end_div();
     echo html_writer::end_div();
-    
 } else {
-    // List competencies
+    // List competencies.
     [$listsql, $listparams] = $scope->definition_condition('c');
     $competencies = $DB->get_records_sql("
-        SELECT c.*, 
+        SELECT c.*,
                cc.courseid, cc.expirymonths, cc.notifydays,
                course.fullname as course_name,
-               (SELECT COUNT(*) FROM {local_tm_pos_comps} pc WHERE pc.competencyid = c.id) as position_count
-        FROM {local_tm_competencies} c
-        LEFT JOIN {local_tm_comp_courses} cc ON cc.competencyid = c.id
+               (SELECT COUNT(*) FROM {local_trainingmatrix_poscomp} pc WHERE pc.competencyid = c.id) as position_count
+        FROM {local_trainingmatrix_comp} c
+        LEFT JOIN {local_trainingmatrix_compcrs} cc ON cc.competencyid = c.id
         LEFT JOIN {course} course ON course.id = cc.courseid
         WHERE $listsql
         ORDER BY c.category, c.name
     ", $listparams);
-    
+
     if (empty($competencies)) {
         echo html_writer::start_div('tm-empty');
         echo html_writer::tag('i', '', ['class' => 'fa fa-certificate tm-empty-icon']);
         echo html_writer::tag('div', get_string('no_competencies', 'local_trainingmatrix'), ['class' => 'tm-empty-title']);
-        echo html_writer::tag('div', 'Create competencies and link them to Moodle courses for tracking.', ['class' => 'tm-empty-text']);
-        echo html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies', 'action' => 'add']),
+        echo html_writer::tag(
+            'div',
+            'Create competencies and link them to Moodle courses for tracking.',
+            ['class' => 'tm-empty-text']
+        );
+        echo html_writer::link(
+            new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies', 'action' => 'add']),
             html_writer::tag('i', '', ['class' => 'fa fa-plus mr-2']) . get_string('add_competency', 'local_trainingmatrix'),
             ['class' => 'tm-btn tm-btn-primary']
         );
@@ -231,19 +266,31 @@ if ($action === 'add' || $action === 'edit') {
         echo html_writer::end_tag('tr');
         echo html_writer::end_tag('thead');
         echo html_writer::start_tag('tbody');
-        
+
         foreach ($competencies as $comp) {
             echo html_writer::start_tag('tr');
-            echo html_writer::tag('td', 
-                ($comp->code ? html_writer::tag('span', s($comp->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') .
+            echo html_writer::tag(
+                'td',
+                ($comp->code ? html_writer::tag(
+                    'span',
+                    s($comp->code),
+                    ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']
+                ) : '') .
                 html_writer::tag('strong', format_string($comp->name)) .
-                (\local_trainingmatrix\local\tenancy::clients() ? html_writer::tag('span', \local_trainingmatrix\local\tenancy::name((int)$comp->clientid), ['class' => 'tm-badge ' . ((int)$comp->clientid ? 'primary' : 'inactive'), 'style' => 'margin-left: 8px;']) : '')
+                (\local_trainingmatrix\local\tenancy::clients() ? html_writer::tag(
+                    'span',
+                    \local_trainingmatrix\local\tenancy::name((int)$comp->clientid),
+                    ['class' => 'tm-badge ' . ((int)$comp->clientid ? 'primary' : 'inactive'), 'style' => 'margin-left: 8px;']
+                ) : '')
             );
             echo html_writer::tag('td', $comp->category ? s($comp->category) : '-');
-            echo html_writer::tag('td', $comp->course_name ? 
-                html_writer::link(new moodle_url('/course/view.php', ['id' => $comp->courseid]), format_string($comp->course_name), ['target' => '_blank']) : 
-                html_writer::tag('span', 'Not linked', ['style' => 'color: var(--tm-danger);'])
-            );
+            echo html_writer::tag('td', $comp->course_name ?
+                html_writer::link(
+                    new moodle_url('/course/view.php', ['id' => $comp->courseid]),
+                    format_string($comp->course_name),
+                    ['target' => '_blank']
+                ) :
+                html_writer::tag('span', 'Not linked', ['style' => 'color: var(--tm-danger);']));
             if (empty($comp->courseid)) {
                 $expirycell = '-';
             } else if ((int)$comp->expirymonths === 0) {
@@ -253,20 +300,34 @@ if ($action === 'add' || $action === 'edit') {
             }
             echo html_writer::tag('td', $expirycell);
             echo html_writer::tag('td', html_writer::tag('span', $comp->position_count, ['class' => 'tm-badge primary']));
-            echo html_writer::tag('td', 
-                $comp->mandatory ? 
-                    html_writer::tag('span', 'Mandatory', ['class' => 'tm-badge danger']) : 
+            echo html_writer::tag(
+                'td',
+                $comp->mandatory ?
+                    html_writer::tag('span', 'Mandatory', ['class' => 'tm-badge danger']) :
                     html_writer::tag('span', 'Optional', ['class' => 'tm-badge not_started'])
             );
-            echo html_writer::tag('td',
+            echo html_writer::tag(
+                'td',
                 html_writer::start_div('tm-dropdown') .
-                html_writer::tag('button', html_writer::tag('i', '', ['class' => 'fa fa-ellipsis-v']), ['class' => 'tm-btn tm-btn-secondary tm-btn-icon tm-btn-sm']) .
+                html_writer::tag(
+                    'button',
+                    html_writer::tag('i', '', ['class' => 'fa fa-ellipsis-v']),
+                    ['class' => 'tm-btn tm-btn-secondary tm-btn-icon tm-btn-sm']
+                ) .
                 html_writer::start_div('tm-dropdown-menu') .
-                html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies', 'action' => 'edit', 'id' => $comp->id]),
+                html_writer::link(
+                    new moodle_url(
+                        '/local/trainingmatrix/index.php',
+                        ['tab' => 'competencies', 'action' => 'edit', 'id' => $comp->id]
+                    ),
                     html_writer::tag('i', '', ['class' => 'fa fa-edit mr-2']) . 'Edit',
                     ['class' => 'tm-dropdown-item']
                 ) .
-                html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'competencies', 'action' => 'delete', 'id' => $comp->id, 'sesskey' => sesskey()]),
+                html_writer::link(
+                    new moodle_url(
+                        '/local/trainingmatrix/index.php',
+                        ['tab' => 'competencies', 'action' => 'delete', 'id' => $comp->id, 'sesskey' => sesskey()]
+                    ),
                     html_writer::tag('i', '', ['class' => 'fa fa-trash mr-2']) . 'Delete',
                     ['class' => 'tm-dropdown-item danger', 'onclick' => "return confirm('Are you sure?');"]
                 ) .
@@ -275,7 +336,7 @@ if ($action === 'add' || $action === 'edit') {
             );
             echo html_writer::end_tag('tr');
         }
-        
+
         echo html_writer::end_tag('tbody');
         echo html_writer::end_tag('table');
         echo html_writer::end_div();

@@ -19,14 +19,14 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 // Form actions for the positions tab. Included by index.php before any output so redirect() works.
 
-// Handle form submissions
+// Handle form submissions.
 if ($action === 'save' && confirm_sesskey()) {
     $data = new stdClass();
     $data->name = required_param('name', PARAM_TEXT);
@@ -36,51 +36,74 @@ if ($action === 'save' && confirm_sesskey()) {
     $data->timemodified = time();
     $competencies = array_values(array_unique(array_filter(optional_param_array('competencies', [], PARAM_INT))));
     // Client: shared (0) or one client's own. Kept as-is when no Client portal clients exist.
-    $existingclient = $id > 0 ? (int)$DB->get_field('local_tm_positions', 'clientid', ['id' => $id]) : 0;
+    $existingclient = $id > 0 ? (int)$DB->get_field('local_trainingmatrix_pos', 'clientid', ['id' => $id]) : 0;
     $data->clientid = \local_trainingmatrix\local\tenancy::clients() ?
         optional_param('clientid', 0, PARAM_INT) : $existingclient;
-    $conflict = local_trainingmatrix_definition_conflict('position', $id, (int)$data->clientid,
-        ['departmentid' => $data->departmentid, 'competencyids' => $competencies]);
+    $conflict = local_trainingmatrix_definition_conflict(
+        'position',
+        $id,
+        (int)$data->clientid,
+        ['departmentid' => $data->departmentid, 'competencyids' => $competencies]
+    );
     if ($conflict) {
-        redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions', 'action' => $id ? 'edit' : 'add', 'id' => $id]),
-            $conflict, null, \core\output\notification::NOTIFY_ERROR);
+        redirect(
+            new moodle_url(
+                '/local/trainingmatrix/index.php',
+                ['tab' => 'positions', 'action' => $id ? 'edit' : 'add', 'id' => $id]
+            ),
+            $conflict,
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
     }
 
     if ($id > 0) {
         $data->id = $id;
-        $DB->update_record('local_tm_positions', $data);
+        $DB->update_record('local_trainingmatrix_pos', $data);
     } else {
         $data->timecreated = time();
-        $id = $DB->insert_record('local_tm_positions', $data);
+        $id = $DB->insert_record('local_trainingmatrix_pos', $data);
     }
-    
+
     // Handle competency assignments: keep existing links (and their mandatory flag), add new, remove unticked.
-    $current = $DB->get_records_menu('local_tm_pos_comps', ['positionid' => $id], '', 'competencyid, id');
+    $current = $DB->get_records_menu('local_trainingmatrix_poscomp', ['positionid' => $id], '', 'competencyid, id');
     foreach ($competencies as $compid) {
-        if (!isset($current[$compid]) && $DB->record_exists('local_tm_competencies', ['id' => $compid])) {
-            $DB->insert_record('local_tm_pos_comps', (object)['positionid' => $id, 'competencyid' => $compid,
+        if (!isset($current[$compid]) && $DB->record_exists('local_trainingmatrix_comp', ['id' => $compid])) {
+            $DB->insert_record('local_trainingmatrix_poscomp', (object)['positionid' => $id, 'competencyid' => $compid,
                 'mandatory' => 1, 'timecreated' => time()]);
         }
         unset($current[$compid]);
     }
     if ($current) {
-        $DB->delete_records_list('local_tm_pos_comps', 'id', array_values($current));
+        $DB->delete_records_list('local_trainingmatrix_poscomp', 'id', array_values($current));
     }
 
     // Everyone already in this position is enrolled in any course it now requires.
     local_trainingmatrix_notify_provision(local_trainingmatrix_provision_positions([$id]));
 
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions']),
-        get_string('position_saved', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
+    redirect(
+        new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions']),
+        get_string('position_saved', 'local_trainingmatrix'),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 }
 
 if ($action === 'delete' && $id > 0 && confirm_sesskey()) {
-    if ($DB->record_exists('local_tm_staff', ['positionid' => $id])) {
-        redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions']),
-            get_string('position_inuse', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_ERROR);
+    if ($DB->record_exists('local_trainingmatrix_staff', ['positionid' => $id])) {
+        redirect(
+            new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions']),
+            get_string('position_inuse', 'local_trainingmatrix'),
+            null,
+            \core\output\notification::NOTIFY_ERROR
+        );
     }
-    $DB->delete_records('local_tm_pos_comps', ['positionid' => $id]);
-    $DB->delete_records('local_tm_positions', ['id' => $id]);
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions']),
-        get_string('position_deleted', 'local_trainingmatrix'), null, \core\output\notification::NOTIFY_SUCCESS);
+    $DB->delete_records('local_trainingmatrix_poscomp', ['positionid' => $id]);
+    $DB->delete_records('local_trainingmatrix_pos', ['id' => $id]);
+    redirect(
+        new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'positions']),
+        get_string('position_deleted', 'local_trainingmatrix'),
+        null,
+        \core\output\notification::NOTIFY_SUCCESS
+    );
 }

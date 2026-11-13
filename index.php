@@ -19,7 +19,7 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once(__DIR__ . '/../../config.php');
@@ -43,7 +43,7 @@ if ($clientparam >= 0 && ($canviewall || $canmanage)) {
     \local_trainingmatrix\local\tenancy::current_filter($clientparam);
 }
 $clientfilter = ($canviewall || $canmanage) ? \local_trainingmatrix\local\tenancy::current_filter() : 0;
-// $scope narrows lists to the chosen client; $accessscope decides what may be opened or changed.
+// The $scope variable narrows lists to the chosen client; $accessscope decides what may be opened or changed.
 $scope = \local_trainingmatrix\local\scope::current($clientfilter);
 $accessscope = \local_trainingmatrix\local\scope::current(0);
 // Staff and reports are open to anyone whose scope holds people: all staff, or a manager's own team.
@@ -73,11 +73,12 @@ echo $OUTPUT->header();
 
 echo html_writer::start_div('trainingmatrix-container');
 
-// Premium header
+// Premium header.
 echo html_writer::start_div('tm-header');
 echo html_writer::start_div('tm-header-content');
-echo html_writer::tag('h1', 
-    html_writer::tag('i', '', ['class' => 'fa fa-th mr-3']) . 
+echo html_writer::tag(
+    'h1',
+    html_writer::tag('i', '', ['class' => 'fa fa-th mr-3']) .
     get_string('trainingmatrix', 'local_trainingmatrix'),
     ['class' => 'tm-title']
 );
@@ -88,8 +89,14 @@ if (($canviewall || $canmanage) && \local_trainingmatrix\local\tenancy::clients(
     foreach (\local_trainingmatrix\local\tenancy::clients() as $cid => $cname) {
         $clientoptions[$cid] = format_string($cname);
     }
-    $select = new single_select(new moodle_url('/local/trainingmatrix/index.php', ['tab' => $tab]), 'client',
-        $clientoptions, $clientfilter, null, 'tm-client-filter');
+    $select = new single_select(
+        new moodle_url('/local/trainingmatrix/index.php', ['tab' => $tab]),
+        'client',
+        $clientoptions,
+        $clientfilter,
+        null,
+        'tm-client-filter'
+    );
     $select->set_label(get_string('client_filter', 'local_trainingmatrix'));
     echo html_writer::div($OUTPUT->render($select), 'tm-client-filter-wrap');
 } else if ($scope->mode() === \local_trainingmatrix\local\scope::TEAM && !$canviewall) {
@@ -97,7 +104,7 @@ if (($canviewall || $canmanage) && \local_trainingmatrix\local\tenancy::clients(
 }
 echo html_writer::end_div();
 
-// Navigation tabs
+// Navigation tabs.
 $tabs = [
     'dashboard' => ['icon' => 'fa-tachometer-alt', 'label' => get_string('dashboard', 'local_trainingmatrix')],
     'departments' => ['icon' => 'fa-building', 'label' => get_string('departments', 'local_trainingmatrix')],
@@ -124,14 +131,15 @@ foreach ($tabs as $key => $tabinfo) {
     }
     $active = ($tab === $key) ? ' active' : '';
     $url = new moodle_url('/local/trainingmatrix/index.php', ['tab' => $key]);
-    echo html_writer::link($url, 
+    echo html_writer::link(
+        $url,
         html_writer::tag('i', '', ['class' => 'fa ' . $tabinfo['icon'] . ' mr-2']) . $tabinfo['label'],
         ['class' => 'tm-nav-item' . $active]
     );
 }
 echo html_writer::end_div();
 
-// Content area
+// Content area.
 echo html_writer::start_div('tm-content');
 
 switch ($tab) {
@@ -182,7 +190,7 @@ switch ($tab) {
         break;
 }
 
-echo html_writer::end_div(); // tm-content
-echo html_writer::end_div(); // trainingmatrix-container
+echo html_writer::end_div(); // Tm-content.
+echo html_writer::end_div(); // Trainingmatrix-container.
 
 echo $OUTPUT->footer();

@@ -19,41 +19,50 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 namespace local_trainingmatrix\task;
 
-defined('MOODLE_INTERNAL') || die();
-
+/**
+ * Scheduled task that flags expiring and expired competencies.
+ */
 class check_expiry extends \core\task\scheduled_task {
+    /**
+     * Get the task name shown to admins.
+     *
+     * @return string
+     */
     public function get_name() {
         return get_string('task_check_expiry', 'local_trainingmatrix');
     }
 
+    /**
+     * Run the task.
+     */
     public function execute() {
         global $DB;
 
         $now = time();
-        $thirtyDays = $now + (30 * 24 * 60 * 60);
+        $thirtydays = $now + (30 * 24 * 60 * 60);
 
-        // Update status for expired completions
+        // Update status for expired completions.
         $DB->execute("
-            UPDATE {local_tm_completions}
+            UPDATE {local_trainingmatrix_compl}
             SET status = 'expired', timemodified = ?
             WHERE status IN ('completed', 'expiring_soon')
-              AND expirydate IS NOT NULL 
+              AND expirydate IS NOT NULL
               AND expirydate < ?
         ", [$now, $now]);
 
-        // Update status for expiring soon
+        // Update status for expiring soon.
         $DB->execute("
-            UPDATE {local_tm_completions}
+            UPDATE {local_trainingmatrix_compl}
             SET status = 'expiring_soon', timemodified = ?
-            WHERE status = 'completed' 
-              AND expirydate IS NOT NULL 
+            WHERE status = 'completed'
+              AND expirydate IS NOT NULL
               AND expirydate BETWEEN ? AND ?
-        ", [$now, $now, $thirtyDays]);
+        ", [$now, $now, $thirtydays]);
 
         mtrace('Training expiry status check completed.');
     }

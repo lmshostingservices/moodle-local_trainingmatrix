@@ -5,21 +5,32 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace local_trainingmatrix;
 
 defined('MOODLE_INTERNAL') || die();
 
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_get_staff_compliance')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_sync_course_completion')]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\external\export_report::class)]
 /**
  * Regression coverage for completion status and exports.
  *
  * @package local_trainingmatrix
  * @copyright 2026 LMS Labs
  * @license https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers ::local_trainingmatrix_get_staff_compliance
+ * @covers ::local_trainingmatrix_sync_course_completion
+ * @covers \local_trainingmatrix\external\export_report
  */
-#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_get_staff_compliance')]
-#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_sync_course_completion')]
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\external\export_report::class)]
 final class completion_regression_test extends \advanced_testcase {
     /**
      * Completion status remains stable across expiry jobs.
@@ -31,18 +42,18 @@ final class completion_regression_test extends \advanced_testcase {
         $this->resetAfterTest();
         $user = $this->getDataGenerator()->create_user();
         $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
-        $position = $DB->insert_record('local_tm_positions', (object)['name' => 'Regression']);
-        $DB->insert_record('local_tm_staff', (object)[
+        $position = $DB->insert_record('local_trainingmatrix_pos', (object)['name' => 'Regression']);
+        $DB->insert_record('local_trainingmatrix_staff', (object)[
             'userid' => $user->id, 'positionid' => $position, 'status' => 'active',
         ]);
         foreach ([-DAYSECS, 14 * DAYSECS, 120 * DAYSECS] as $index => $offset) {
-            $competency = $DB->insert_record('local_tm_competencies', (object)[
+            $competency = $DB->insert_record('local_trainingmatrix_comp', (object)[
                 'name' => 'Competency ' . $index, 'code' => 'REG' . $index,
             ]);
-            $DB->insert_record('local_tm_pos_comps', (object)[
+            $DB->insert_record('local_trainingmatrix_poscomp', (object)[
                 'positionid' => $position, 'competencyid' => $competency,
             ]);
-            $DB->insert_record('local_tm_completions', (object)[
+            $DB->insert_record('local_trainingmatrix_compl', (object)[
                 'userid' => $user->id, 'courseid' => $course->id, 'competencyid' => $competency,
                 'status' => 'completed', 'progress' => 100, 'expirydate' => time() + $offset,
             ]);
@@ -58,14 +69,14 @@ final class completion_regression_test extends \advanced_testcase {
         $this->assertEquals(1, local_trainingmatrix_get_compliance_stats()['expired']);
         $this->assertEquals(1, local_trainingmatrix_get_compliance_stats()['expiring_soon']);
         // A previously warned completion must eventually become expired.
-        $DB->set_field('local_tm_completions', 'expirydate', time() - DAYSECS, ['status' => 'expiring_soon']);
+        $DB->set_field('local_trainingmatrix_compl', 'expirydate', time() - DAYSECS, ['status' => 'expiring_soon']);
         ob_start();
         try {
             (new \local_trainingmatrix\task\check_expiry())->execute();
         } finally {
             ob_end_clean();
         }
-        $this->assertEquals(2, $DB->count_records('local_tm_completions', ['status' => 'expired']));
+        $this->assertEquals(2, $DB->count_records('local_trainingmatrix_compl', ['status' => 'expired']));
     }
 
     /**
@@ -78,19 +89,19 @@ final class completion_regression_test extends \advanced_testcase {
         $this->resetAfterTest();
         $user = $this->getDataGenerator()->create_user();
         $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
-        $position = $DB->insert_record('local_tm_positions', (object)['name' => 'Regression']);
-        $DB->insert_record('local_tm_staff', (object)[
+        $position = $DB->insert_record('local_trainingmatrix_pos', (object)['name' => 'Regression']);
+        $DB->insert_record('local_trainingmatrix_staff', (object)[
             'userid' => $user->id, 'positionid' => $position, 'status' => 'active',
         ]);
         for ($i = 0; $i < 4; $i++) {
-            $competency = $DB->insert_record('local_tm_competencies', (object)[
+            $competency = $DB->insert_record('local_trainingmatrix_comp', (object)[
                 'name' => 'Competency ' . $i, 'code' => 'REG' . $i,
             ]);
-            $DB->insert_record('local_tm_comp_courses', (object)[
+            $DB->insert_record('local_trainingmatrix_compcrs', (object)[
                 'competencyid' => $competency, 'courseid' => $course->id, 'expirymonths' => 12,
             ]);
             if ($i < 3) {
-                $DB->insert_record('local_tm_pos_comps', (object)[
+                $DB->insert_record('local_trainingmatrix_poscomp', (object)[
                     'positionid' => $position, 'competencyid' => $competency,
                 ]);
             }
@@ -100,8 +111,8 @@ final class completion_regression_test extends \advanced_testcase {
         ]);
         $this->assertTrue(local_trainingmatrix_sync_course_completion($course->id, $user->id));
         $this->assertTrue(local_trainingmatrix_sync_course_completion($course->id, $user->id));
-        $this->assertEquals(3, $DB->count_records('local_tm_completions', ['userid' => $user->id]));
-        $DB->set_field('local_tm_staff', 'status', 'inactive', ['userid' => $user->id]);
+        $this->assertEquals(3, $DB->count_records('local_trainingmatrix_compl', ['userid' => $user->id]));
+        $DB->set_field('local_trainingmatrix_staff', 'status', 'inactive', ['userid' => $user->id]);
         $this->assertFalse(local_trainingmatrix_sync_course_completion($course->id, $user->id));
     }
 

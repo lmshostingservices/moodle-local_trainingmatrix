@@ -8,15 +8,13 @@
 //
 // Moodle is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle. If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace local_trainingmatrix;
-
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Read-only, explicitly authorised subject projection. Never issues awards or runs reset services.
@@ -26,13 +24,22 @@ defined('MOODLE_INTERNAL') || die();
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class learner_training {
-    /** Return only the signed-in learner's records, including historical documents. */
+    /**
+     * Return only the signed-in learner's records, including historical documents.
+     *
+     * @return array
+     */
     public static function get(): array {
         global $USER, $CFG;
         return self::for_user((int)$USER->id);
     }
 
-    /** Project an explicit subject without ever changing the authenticated actor. */
+    /**
+     * Project an explicit subject without ever changing the authenticated actor.
+     *
+     * @param int $userid The user id; 0 for the current user.
+     * @return array
+     */
     public static function for_user(int $userid): array {
         global $USER, $CFG, $DB;
         require_login();
@@ -55,50 +62,90 @@ final class learner_training {
         return $result;
     }
 
-    /** Optional vocational schedule, never interpreted as program completion. */
+    /**
+     * Optional vocational schedule, never interpreted as program completion.
+     *
+     * @param array $result Result being built, passed by reference.
+     * @param array $courses The learner's courses.
+     * @param \stdClass $subject The learner.
+     */
     private static function delivery_plans(array &$result, array $courses, \stdClass $subject): void {
         global $DB;
-        if (!self::available([
+        if (
+            !self::available([
             'block_trainingplan_schedule' => ['id', 'userid', 'courseid', 'enddate', 'status'],
-        ], 'Training Plan', $result)) {
+            ], 'Training Plan', $result)
+        ) {
             return;
         }
         foreach ($DB->get_records('block_trainingplan_schedule', ['userid' => $subject->id]) as $plan) {
             if (!isset($courses[$plan->courseid])) {
                 continue;
             }
-            $result['items'][] = self::item('program', $courses[$plan->courseid]->fullname,
-                'Training Plan', 'Delivery schedule: ' . $plan->status, (int)$plan->enddate);
+            $result['items'][] = self::item(
+                'program',
+                $courses[$plan->courseid]->fullname,
+                'Training Plan',
+                'Delivery schedule: ' . $plan->status,
+                (int)$plan->enddate
+            );
         }
     }
 
-    /** Preserve the regulated issuer's own download and validation controls. */
+    /**
+     * Preserve the regulated issuer's own download and validation controls.
+     *
+     * @param array $result Result being built, passed by reference.
+     */
     private static function rto_awards(array &$result): void {
         global $DB, $USER, $CFG;
-        if (!self::available([
+        if (
+            !self::available([
             'local_rtocompliance_certs' => ['id', 'userid', 'status', 'certtype', 'certnumber'],
-        ], 'RTO Compliance', $result)) {
+            ], 'RTO Compliance', $result)
+        ) {
             return;
         }
-        if (!is_readable($CFG->dirroot . '/local/rtocompliance/mycerts.php') ||
-                !has_capability('local/rtocompliance:viewown', \context_user::instance($USER->id))) {
+        if (
+            !is_readable($CFG->dirroot . '/local/rtocompliance/mycerts.php') ||
+                !has_capability('local/rtocompliance:viewown', \context_user::instance($USER->id))
+        ) {
             $result['notices'][] = 'RTO Compliance: certificate wallet access unavailable.';
             return;
         }
-        foreach ($DB->get_records('local_rtocompliance_certs',
-                ['userid' => $USER->id, 'status' => 'issued']) as $award) {
-            $result['items'][] = self::item('certificate', $award->certtype . ' — ' . $award->certnumber,
-                'RTO Compliance', 'Issued — view document with statutory issuer', 0, 0,
-                new \moodle_url('/local/rtocompliance/mycerts.php'));
+        foreach (
+            $DB->get_records(
+                'local_rtocompliance_certs',
+                ['userid' => $USER->id, 'status' => 'issued']
+            ) as $award
+        ) {
+            $result['items'][] = self::item(
+                'certificate',
+                $award->certtype . ' — ' . $award->certnumber,
+                'RTO Compliance',
+                'Issued — view document with statutory issuer',
+                0,
+                0,
+                new \moodle_url('/local/rtocompliance/mycerts.php')
+            );
         }
     }
 
-    /** Fail closed for absent or partially upgraded optional schemas. */
+    /**
+     * Fail closed for absent or partially upgraded optional schemas.
+     *
+     * @param array $tables Tables the source needs.
+     * @param string $source Source name shown to the learner.
+     * @param array $result Result being built, passed by reference.
+     * @return bool True if available.
+     */
     private static function available(array $tables, string $source, array &$result): bool {
         global $DB;
         foreach ($tables as $table => $fields) {
-            if (!$DB->get_manager()->table_exists(new \xmldb_table($table)) ||
-                    array_diff($fields, array_keys($DB->get_columns($table)))) {
+            if (
+                !$DB->get_manager()->table_exists(new \xmldb_table($table)) ||
+                    array_diff($fields, array_keys($DB->get_columns($table)))
+            ) {
                 $result['notices'][] = $source . ': unavailable (not installed or requires an upgrade).';
                 return false;
             }
@@ -106,13 +153,39 @@ final class learner_training {
         return true;
     }
 
-    /** Common presentation contract; dates retain their source meaning. */
-    private static function item(string $kind, string $name, string $source, string $status,
-            int $due = 0, int $expires = 0, ?\moodle_url $url = null, string $action = ''): array {
+    /**
+     * Common presentation contract; dates retain their source meaning.
+     *
+     * @param string $kind Item type.
+     * @param string $name Item name.
+     * @param string $source Source name shown to the learner.
+     * @param string $status Status text.
+     * @param int $due Due date, or 0.
+     * @param int $expires Expiry date, or 0.
+     * @param ?\moodle_url $url Link to the item, if any.
+     * @param string $action Next step text.
+     * @return array
+     */
+    private static function item(
+        string $kind,
+        string $name,
+        string $source,
+        string $status,
+        int $due = 0,
+        int $expires = 0,
+        ?\moodle_url $url = null,
+        string $action = ''
+    ): array {
         return compact('kind', 'name', 'source', 'status', 'due', 'expires', 'url', 'action');
     }
 
-    /** Core completion is not activity progress, and course end date is not a deadline. */
+    /**
+     * Core completion is not activity progress, and course end date is not a deadline.
+     *
+     * @param array $result Result being built, passed by reference.
+     * @param array $courses The learner's courses.
+     * @param \stdClass $subject The learner.
+     */
     private static function courses(array &$result, array $courses, \stdClass $subject): void {
         global $DB;
         foreach ($courses as $course) {
@@ -121,8 +194,11 @@ final class learner_training {
             if (!$course->visible && !has_capability('moodle/course:viewhiddencourses', $context, $subject)) {
                 $access = false;
             }
-            $completed = $DB->get_field('course_completions', 'timecompleted',
-                ['course' => $course->id, 'userid' => $subject->id]);
+            $completed = $DB->get_field(
+                'course_completions',
+                'timecompleted',
+                ['course' => $course->id, 'userid' => $subject->id]
+            );
             $status = $completed ? 'Course completed' :
                 ($course->enablecompletion ? 'Course not completed' : 'Completion tracking unavailable');
             $sequence = class_exists('\\local_trainingpathways\\sequence_service')
@@ -131,18 +207,27 @@ final class learner_training {
                 $access = false;
                 $status = 'Locked';
             }
-            $item = self::item('course', $course->fullname, 'Moodle', $status, 0, 0,
+            $item = self::item(
+                'course',
+                $course->fullname,
+                'Moodle',
+                $status,
+                0,
+                0,
                 $access ? new \moodle_url('/course/view.php', ['id' => $course->id]) : null,
                 $sequence ? implode('; ', $sequence) :
-                    ($access ? '' : 'Course access unavailable — contact your training team'));
+                ($access ? '' : 'Course access unavailable — contact your training team')
+            );
             $item['courseid'] = (int)$course->id;
             $item['state'] = $sequence ? 'locked' : ($completed ? 'completed' : ($access ? 'available' : 'locked'));
             $item['dates'] = ['Course starts' => (int)$course->startdate,
                 'Course ends (not a deadline)' => (int)$course->enddate, 'Course completed' => (int)$completed];
-            $enrolments = $DB->get_records_sql('SELECT ue.id, ue.timestart, ue.timeend, ue.status,
+            $enrolments = $DB->get_records_sql(
+                'SELECT ue.id, ue.timestart, ue.timeend, ue.status,
                     e.status AS methodstatus FROM {user_enrolments} ue JOIN {enrol} e ON e.id = ue.enrolid
                     WHERE ue.userid = :userid AND e.courseid = :courseid',
-                ['userid' => $subject->id, 'courseid' => $course->id]);
+                ['userid' => $subject->id, 'courseid' => $course->id]
+            );
             foreach ($enrolments as $enrolment) {
                 $item['dates']['Enrolment ' . $enrolment->id . ' starts'] = (int)$enrolment->timestart;
                 $item['dates']['Enrolment ' . $enrolment->id . ' ends'] = (int)$enrolment->timeend;
@@ -155,7 +240,13 @@ final class learner_training {
         }
     }
 
-    /** Submission and quiz evidence are never substituted for official completion. */
+    /**
+     * Submission and quiz evidence are never substituted for official completion.
+     *
+     * @param \stdClass $course The course.
+     * @param \stdClass $subject The learner.
+     * @return array
+     */
     private static function activity_evidence(\stdClass $course, \stdClass $subject): array {
         global $DB, $CFG;
         $rows = [];
@@ -177,11 +268,15 @@ final class learner_training {
                 $submission = $assignment->teamsubmission ?
                     $assign->get_group_submission($subject->id, 0, false) :
                     $assign->get_user_submission($subject->id, false);
-                $extension = $DB->get_record('assign_user_flags',
-                    ['assignment' => $cm->instance, 'userid' => $subject->id]);
-                $grade = $submission ? $DB->get_record('assign_grades',
+                $extension = $DB->get_record(
+                    'assign_user_flags',
+                    ['assignment' => $cm->instance, 'userid' => $subject->id]
+                );
+                $grade = $submission ? $DB->get_record(
+                    'assign_grades',
                     ['assignment' => $cm->instance, 'userid' => $subject->id,
-                        'attemptnumber' => $submission->attemptnumber]) : false;
+                    'attemptnumber' => $submission->attemptnumber]
+                ) : false;
                 $submitted = $submission && $submission->status === 'submitted';
                 $awaiting = $submitted && (!$grade || $grade->grade === null || $grade->grade < 0 ||
                     $grade->timemodified < $submission->timemodified);
@@ -198,9 +293,14 @@ final class learner_training {
                 require_once($CFG->dirroot . '/mod/quiz/lib.php');
                 $quiz = $DB->get_record('quiz', ['id' => $cm->instance]);
                 $quiz = quiz_update_effective_access($quiz, $subject->id);
-                $attempts = $DB->get_records('quiz_attempts',
+                $attempts = $DB->get_records(
+                    'quiz_attempts',
                     ['quiz' => $cm->instance, 'userid' => $subject->id, 'preview' => 0, 'state' => 'finished'],
-                    'timefinish DESC', '*', 0, 1);
+                    'timefinish DESC',
+                    '*',
+                    0,
+                    1
+                );
                 $attempt = $attempts ? reset($attempts) : false;
                 $rows[] = ['name' => $cm->name, 'status' => $attempt ?
                     'Quiz attempt finished — no pass outcome inferred' : 'No finished quiz attempt',
@@ -211,16 +311,23 @@ final class learner_training {
         return $rows;
     }
 
-    /** Required program evidence is independent of optional task percentages. */
+    /**
+     * Required program evidence is independent of optional task percentages.
+     *
+     * @param array $result Result being built, passed by reference.
+     * @param \stdClass $subject The learner.
+     */
     private static function programs(array &$result, \stdClass $subject): void {
         global $DB;
-        if (!self::available([
+        if (
+            !self::available([
             'local_tp_assignments' => ['id', 'userid', 'pathwayid', 'status', 'targetdate'],
             'local_tp_pathways' => ['id', 'name'],
             'local_tp_stages' => ['id', 'pathwayid'],
             'local_tp_tasks' => ['id', 'stageid', 'required', 'tasktype', 'courseid'],
             'local_tp_progress' => ['assignmentid', 'taskid', 'userid', 'status', 'signedoffby'],
-        ], 'Training Pathways', $result)) {
+            ], 'Training Pathways', $result)
+        ) {
             return;
         }
         if (!has_capability('local/trainingpathways:view', \context_system::instance())) {
@@ -230,11 +337,14 @@ final class learner_training {
         $assignments = $DB->get_records_sql(
             'SELECT a.*, p.name FROM {local_tp_assignments} a
                JOIN {local_tp_pathways} p ON p.id = a.pathwayid WHERE a.userid = :userid',
-            ['userid' => $subject->id]);
+            ['userid' => $subject->id]
+        );
         foreach ($assignments as $assignment) {
             $tasks = $DB->get_records_sql(
                 'SELECT t.* FROM {local_tp_tasks} t JOIN {local_tp_stages} s ON s.id = t.stageid
-                  WHERE s.pathwayid = :pathwayid AND t.required = 1', ['pathwayid' => $assignment->pathwayid]);
+                  WHERE s.pathwayid = :pathwayid AND t.required = 1',
+                ['pathwayid' => $assignment->pathwayid]
+            );
             $done = 0;
             $signoff = false;
             foreach ($tasks as $task) {
@@ -243,8 +353,11 @@ final class learner_training {
                 ]);
                 if ($task->tasktype === 'course') {
                     // Legacy task ticks cannot substitute for official Moodle completion.
-                    $complete = $task->courseid && $DB->get_field('course_completions', 'timecompleted',
-                        ['course' => $task->courseid, 'userid' => $subject->id]);
+                    $complete = $task->courseid && $DB->get_field(
+                        'course_completions',
+                        'timecompleted',
+                        ['course' => $task->courseid, 'userid' => $subject->id]
+                    );
                 } else {
                     $complete = $progress && $progress->status === 'complete';
                     if ($task->tasktype === 'signoff') {
@@ -263,26 +376,44 @@ final class learner_training {
             } else if (!$satisfied && $assignment->targetdate && $assignment->targetdate < time()) {
                 $action = trim($action . ' — Program overdue', ' —');
             }
-            $result['items'][] = self::item('program', $assignment->name, 'Training Pathways',
-                $status, (int)$assignment->targetdate, 0, null, $action);
+            $result['items'][] = self::item(
+                'program',
+                $assignment->name,
+                'Training Pathways',
+                $status,
+                (int)$assignment->targetdate,
+                0,
+                null,
+                $action
+            );
         }
     }
 
-    /** Legacy reset schedules provide dates, not a certification validity ledger. */
+    /**
+     * Legacy reset schedules provide dates, not a certification validity ledger.
+     *
+     * @param array $result Result being built, passed by reference.
+     * @param array $courses The learner's courses.
+     * @param \stdClass $subject The learner.
+     */
     private static function recertification(array &$result, array $courses, \stdClass $subject): void {
         global $DB, $CFG;
-        if (!self::available([
+        if (
+            !self::available([
             'local_recertify_schedule' => ['id', 'courseid', 'enabled', 'scheduletype', 'intervalmonths', 'fixeddate'],
             'local_recertify_log' => ['scheduleid', 'userid', 'action', 'resettime'],
-        ], 'Course Recertification', $result)) {
+            ], 'Course Recertification', $result)
+        ) {
             return;
         }
         $lib = $CFG->dirroot . '/local/recertify/lib.php';
         if (is_readable($lib)) {
             require_once($lib);
         }
-        if (!function_exists('local_recertify_next_reset_time') ||
-                !function_exists('local_recertify_last_due_reset_time')) {
+        if (
+            !function_exists('local_recertify_next_reset_time') ||
+                !function_exists('local_recertify_last_due_reset_time')
+        ) {
             $result['notices'][] = 'Course Recertification: schedule reader requires an upgrade.';
             return;
         }
@@ -299,16 +430,22 @@ final class learner_training {
                   WHERE ue.userid = :userid AND e.courseid = :courseid AND ue.status = 0 AND e.status = 0
                     AND (ue.timestart = 0 OR ue.timestart <= :nowstart)
                     AND (ue.timeend = 0 OR ue.timeend > :nowend)',
-                ['userid' => $subject->id, 'courseid' => $course->id, 'nowstart' => time(), 'nowend' => time()]);
-            $completed = (int)$DB->get_field('course_completions', 'timecompleted',
-                ['course' => $course->id, 'userid' => $subject->id]);
+                ['userid' => $subject->id, 'courseid' => $course->id, 'nowstart' => time(), 'nowend' => time()]
+            );
+            $completed = (int)$DB->get_field(
+                'course_completions',
+                'timecompleted',
+                ['course' => $course->id, 'userid' => $subject->id]
+            );
             $dates = [];
             foreach ($enrolments as $enrolment) {
                 $start = (int)$enrolment->timestart ?: (int)$enrolment->timecreated;
                 $due = local_recertify_last_due_reset_time($schedule, $start, time(), $completed);
-                if (!$due || $DB->record_exists('local_recertify_log', [
+                if (
+                    !$due || $DB->record_exists('local_recertify_log', [
                     'scheduleid' => $schedule->id, 'userid' => $subject->id, 'action' => 'reset', 'resettime' => $due,
-                ])) {
+                    ])
+                ) {
                     $due = local_recertify_next_reset_time($schedule, $start, time(), $completed);
                 }
                 if ($due) {
@@ -316,26 +453,41 @@ final class learner_training {
                 }
             }
             $due = $dates ? min($dates) : 0;
-            $result['items'][] = self::item('certification', $course->fullname, 'Course Recertification',
-                'Certification validity unavailable — reset schedule only', $due, 0, null,
+            $result['items'][] = self::item(
+                'certification',
+                $course->fullname,
+                'Course Recertification',
+                'Certification validity unavailable — reset schedule only',
+                $due,
+                0,
+                null,
                 !$enrolments ? 'No active enrolment for renewal' :
-                    ($due && $due <= time() ? 'Scheduled reset due; not evidence of renewal' : ''));
+                ($due && $due <= time() ? 'Scheduled reset due; not evidence of renewal' : '')
+            );
         }
     }
 
-    /** Existing stored PDFs only: get_file() would render/write a missing document. */
+    /**
+     * Existing stored PDFs only: get_file() would render/write a missing document.
+     *
+     * @param array $result Result being built, passed by reference.
+     * @param \stdClass $subject The learner.
+     */
     private static function certificates(array &$result, \stdClass $subject): void {
         global $DB, $USER;
-        if (!self::available([
+        if (
+            !self::available([
             'certificatepro' => ['id', 'course', 'name'],
             'certificatepro_issues' => ['id', 'userid', 'certificateproid', 'expires', 'revoked'],
-        ], 'Certificate Pro', $result)) {
+            ], 'Certificate Pro', $result)
+        ) {
             return;
         }
         $issues = $DB->get_records_sql(
             'SELECT i.*, c.course, c.name FROM {certificatepro_issues} i
                JOIN {certificatepro} c ON c.id = i.certificateproid WHERE i.userid = :userid',
-            ['userid' => $subject->id]);
+            ['userid' => $subject->id]
+        );
         foreach ($issues as $issue) {
             $cm = get_coursemodule_from_instance('certificatepro', $issue->certificateproid, $issue->course);
             $url = null;
@@ -359,15 +511,30 @@ final class learner_training {
                     has_capability('mod/certificatepro:view', $context) &&
                     ((int)$subject->id === (int)$USER->id || has_capability('mod/certificatepro:viewreport', $context));
                 if ($access && !$issue->revoked && in_array($documentstatus, ['valid', 'expired'], true)) {
-                    $files = get_file_storage()->get_area_files($context->id, 'mod_certificatepro',
-                        'issue', $issue->id, 'id', false);
+                    $files = get_file_storage()->get_area_files(
+                        $context->id,
+                        'mod_certificatepro',
+                        'issue',
+                        $issue->id,
+                        'id',
+                        false
+                    );
                     foreach ($files as $file) {
-                        if ($file->get_mimetype() !== 'application/pdf' ||
-                                strtolower(pathinfo($file->get_filename(), PATHINFO_EXTENSION)) !== 'pdf') {
+                        if (
+                            $file->get_mimetype() !== 'application/pdf' ||
+                                strtolower(pathinfo($file->get_filename(), PATHINFO_EXTENSION)) !== 'pdf'
+                        ) {
                             continue;
                         }
-                        $url = \moodle_url::make_pluginfile_url($context->id, 'mod_certificatepro', 'issue',
-                            $issue->id, $file->get_filepath(), $file->get_filename(), true);
+                        $url = \moodle_url::make_pluginfile_url(
+                            $context->id,
+                            'mod_certificatepro',
+                            'issue',
+                            $issue->id,
+                            $file->get_filepath(),
+                            $file->get_filename(),
+                            true
+                        );
                         if ($status === 'Document pending') {
                             $status = 'Document available';
                         }
@@ -375,10 +542,17 @@ final class learner_training {
                     }
                 }
             }
-            $item = self::item('certificate', $issue->name, 'Certificate Pro', $status,
-                0, (int)$issue->expires, $url,
+            $item = self::item(
+                'certificate',
+                $issue->name,
+                'Certificate Pro',
+                $status,
+                0,
+                (int)$issue->expires,
+                $url,
                 !$access ? 'Document access unavailable — contact the issuer' :
-                    ($status === 'Document pending' ? 'Awaiting stored PDF from issuer' : ''));
+                ($status === 'Document pending' ? 'Awaiting stored PDF from issuer' : '')
+            );
             $item['courseid'] = (int)$issue->course;
             $item['state'] = $documentstatus;
             $item['dates'] = ['Document issued' => (int)($issue->timecreated ?? 0),

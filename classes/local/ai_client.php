@@ -24,7 +24,7 @@ namespace local_trainingmatrix\local;
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class ai_client {
     /** Fixed owner-approved server tariff. */
@@ -122,7 +122,7 @@ final class ai_client {
                 'credits_remaining' => null];
         };
 
-        $position = $DB->get_record('local_tm_positions', ['id' => $positionid], '*', MUST_EXIST);
+        $position = $DB->get_record('local_trainingmatrix_pos', ['id' => $positionid], '*', MUST_EXIST);
         if (!$this->is_configured()) {
             return $fail(get_string('plugin_not_configured', 'local_trainingmatrix'));
         }
@@ -137,7 +137,7 @@ final class ai_client {
         }
 
         $existinglist = [];
-        foreach ($DB->get_records('local_tm_competencies', null, 'name', 'id, name, code') as $c) {
+        foreach ($DB->get_records('local_trainingmatrix_comp', null, 'name', 'id, name, code') as $c) {
             $existinglist[] = $c->name . ($c->code ? " ({$c->code})" : '');
         }
         $prompt = "You are an expert HR consultant specializing in workplace competency frameworks. " .
@@ -171,9 +171,11 @@ final class ai_client {
         }
         $httpcode = (int)($curl->info['http_code'] ?? 0);
         $data = json_decode((string)$response, true);
-        if (($httpcode !== 0 && ($httpcode < 200 || $httpcode >= 300)) || !is_array($data) ||
+        if (
+            ($httpcode !== 0 && ($httpcode < 200 || $httpcode >= 300)) || !is_array($data) ||
                 !isset($data['competencies']) ||
-                !is_array($data['competencies'])) {
+                !is_array($data['competencies'])
+        ) {
             $message = is_array($data) && isset($data['message']) ? clean_param($data['message'], PARAM_TEXT) : '';
             return $fail($message !== '' ? $message : get_string('ai_generationfailed', 'local_trainingmatrix'));
         }
@@ -201,20 +203,28 @@ final class ai_client {
             $existing = false;
             $fit = '(clientid = 0 OR clientid = :client)';
             if ($code !== '') {
-                $existing = $DB->get_record_select('local_tm_competencies',
+                $existing = $DB->get_record_select(
+                    'local_trainingmatrix_comp',
                     $DB->sql_equal('code', ':code', false) . " AND $fit",
-                    ['code' => $code, 'client' => (int)$position->clientid], 'id', IGNORE_MULTIPLE);
+                    ['code' => $code, 'client' => (int)$position->clientid],
+                    'id',
+                    IGNORE_MULTIPLE
+                );
             }
             if (!$existing) {
-                $existing = $DB->get_record_select('local_tm_competencies',
+                $existing = $DB->get_record_select(
+                    'local_trainingmatrix_comp',
                     $DB->sql_equal('name', ':name', false) . " AND $fit",
-                    ['name' => $name, 'client' => (int)$position->clientid], 'id', IGNORE_MULTIPLE);
+                    ['name' => $name, 'client' => (int)$position->clientid],
+                    'id',
+                    IGNORE_MULTIPLE
+                );
             }
             if ($existing) {
                 $compid = (int)$existing->id;
                 $linked[] = $name;
             } else {
-                $compid = (int)$DB->insert_record('local_tm_competencies', (object)[
+                $compid = (int)$DB->insert_record('local_trainingmatrix_comp', (object)[
                     'name' => $name,
                     'code' => $code,
                     'category' => $category !== '' ? $category : 'Other',
@@ -226,8 +236,8 @@ final class ai_client {
                 ]);
                 $created[] = $name;
             }
-            if (!$DB->record_exists('local_tm_pos_comps', ['positionid' => $positionid, 'competencyid' => $compid])) {
-                $DB->insert_record('local_tm_pos_comps', (object)[
+            if (!$DB->record_exists('local_trainingmatrix_poscomp', ['positionid' => $positionid, 'competencyid' => $compid])) {
+                $DB->insert_record('local_trainingmatrix_poscomp', (object)[
                     'positionid' => $positionid,
                     'competencyid' => $compid,
                     'mandatory' => $mandatory,

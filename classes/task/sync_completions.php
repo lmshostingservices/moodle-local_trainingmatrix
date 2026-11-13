@@ -19,96 +19,111 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 namespace local_trainingmatrix\task;
 
-defined('MOODLE_INTERNAL') || die();
-
+/**
+ * Scheduled task that records competencies completed through courses.
+ */
 class sync_completions extends \core\task\scheduled_task {
+    /**
+     * Get the task name shown to admins.
+     *
+     * @return string
+     */
     public function get_name() {
         return get_string('task_sync_completions', 'local_trainingmatrix');
     }
 
+    /**
+     * Run the task.
+     */
     public function execute() {
         global $DB, $CFG;
 
         require_once($CFG->dirroot . '/local/trainingmatrix/lib.php');
 
-        // Get all competency-course links
-        $compCourses = $DB->get_records('local_tm_comp_courses');
+        // Get all competency-course links.
+        $compcourses = $DB->get_records('local_trainingmatrix_compcrs');
 
-        $syncCount = 0;
+        $synccount = 0;
         $now = time();
 
-        foreach ($compCourses as $cc) {
-            // Get all staff who have this competency required
-            $staffWithComp = $DB->get_records_sql("
+        foreach ($compcourses as $cc) {
+            // Get all staff who have this competency required.
+            $staffwithcomp = $DB->get_records_sql("
                 SELECT DISTINCT s.userid
-                FROM {local_tm_staff} s
-                JOIN {local_tm_pos_comps} pc ON pc.positionid = s.positionid
+                FROM {local_trainingmatrix_staff} s
+                JOIN {local_trainingmatrix_poscomp} pc ON pc.positionid = s.positionid
                 WHERE pc.competencyid = ? AND s.status = 'active'
             ", [$cc->competencyid]);
 
-            foreach ($staffWithComp as $staff) {
-                // Check Moodle course completion
+            foreach ($staffwithcomp as $staff) {
+                // Check Moodle course completion.
                 $completion = $DB->get_record('course_completions', [
                     'course' => $cc->courseid,
                     'userid' => $staff->userid,
                 ]);
 
                 if ($completion && $completion->timecompleted) {
-                    // Calculate expiry date
-                    $expiryDate = local_trainingmatrix_expiry_date((int)$completion->timecompleted,
-                        (int)$cc->expirymonths);
+                    // Calculate expiry date.
+                    $expirydate = local_trainingmatrix_expiry_date(
+                        (int)$completion->timecompleted,
+                        (int)$cc->expirymonths
+                    );
 
-                    // Check existing training matrix completion
-                    $tmCompletion = $DB->get_record('local_tm_completions', [
+                    // Check existing training matrix completion.
+                    $tmcompletion = $DB->get_record('local_trainingmatrix_compl', [
                         'userid' => $staff->userid,
                         'competencyid' => $cc->competencyid,
                         'courseid' => $cc->courseid,
                     ]);
 
-                    $status = local_trainingmatrix_status_for_expiry($expiryDate, $now);
+                    $status = local_trainingmatrix_status_for_expiry($expirydate, $now);
 
-                    if ($tmCompletion) {
-                        // Update existing
-                        if ($tmCompletion->completiondate != $completion->timecompleted ||
-                            $tmCompletion->expirydate != $expiryDate ||
-                            $tmCompletion->status != $status) {
-                            if ($tmCompletion->completiondate != $completion->timecompleted ||
-                                    $tmCompletion->expirydate != $expiryDate) {
-                                $tmCompletion->notified = 0;
+                    if ($tmcompletion) {
+                        // Update existing.
+                        if (
+                            $tmcompletion->completiondate != $completion->timecompleted ||
+                            $tmcompletion->expirydate != $expirydate ||
+                            $tmcompletion->status != $status
+                        ) {
+                            if (
+                                $tmcompletion->completiondate != $completion->timecompleted ||
+                                    $tmcompletion->expirydate != $expirydate
+                            ) {
+                                $tmcompletion->notified = 0;
                             }
-                            $tmCompletion->completiondate = $completion->timecompleted;
-                            $tmCompletion->expirydate = $expiryDate;
-                            $tmCompletion->status = $status;
-                            $tmCompletion->progress = 100;
-                            $tmCompletion->timemodified = $now;
-                            $DB->update_record('local_tm_completions', $tmCompletion);
-                            $syncCount++;
+                            $tmcompletion->completiondate = $completion->timecompleted;
+                            $tmcompletion->expirydate = $expirydate;
+                            $tmcompletion->status = $status;
+                            $tmcompletion->progress = 100;
+                            $tmcompletion->timemodified = $now;
+                            $DB->update_record('local_trainingmatrix_compl', $tmcompletion);
+                            $synccount++;
                         }
                     } else {
-                        // Create new
-                        $newCompletion = new \stdClass();
-                        $newCompletion->userid = $staff->userid;
-                        $newCompletion->competencyid = $cc->competencyid;
-                        $newCompletion->courseid = $cc->courseid;
-                        $newCompletion->completiondate = $completion->timecompleted;
-                        $newCompletion->expirydate = $expiryDate;
-                        $newCompletion->status = $status;
-                        $newCompletion->progress = 100;
-                        $newCompletion->notified = 0;
-                        $newCompletion->timecreated = $now;
-                        $newCompletion->timemodified = $now;
-                        $DB->insert_record('local_tm_completions', $newCompletion);
-                        $syncCount++;
+                        // Create new.
+                        $newcompletion = new \stdClass();
+                        $newcompletion->userid = $staff->userid;
+                        $newcompletion->competencyid = $cc->competencyid;
+                        $newcompletion->courseid = $cc->courseid;
+                        $newcompletion->completiondate = $completion->timecompleted;
+                        $newcompletion->expirydate = $expirydate;
+                        $newcompletion->status = $status;
+                        $newcompletion->progress = 100;
+                        $newcompletion->notified = 0;
+                        $newcompletion->timecreated = $now;
+                        $newcompletion->timemodified = $now;
+                        $DB->insert_record('local_trainingmatrix_compl', $newcompletion);
+                        $synccount++;
                     }
                 } else {
-                    // Check for in-progress
+                    // Check for in-progress.
                     $activities = $DB->get_record_sql("
-                        SELECT COUNT(cmc.id) as completed, 
+                        SELECT COUNT(cmc.id) as completed,
                                (SELECT COUNT(*) FROM {course_modules} cm2 WHERE cm2.course = ? AND cm2.completion > 0
                                 AND cm2.deletioninprogress = 0) as total
                         FROM {course_modules_completion} cmc
@@ -119,7 +134,7 @@ class sync_completions extends \core\task\scheduled_task {
                     if ($activities && $activities->total > 0) {
                         $progress = round(($activities->completed / $activities->total) * 100);
 
-                        $tmCompletion = $DB->get_record('local_tm_completions', [
+                        $tmcompletion = $DB->get_record('local_trainingmatrix_compl', [
                             'userid' => $staff->userid,
                             'competencyid' => $cc->competencyid,
                             'courseid' => $cc->courseid,
@@ -127,32 +142,32 @@ class sync_completions extends \core\task\scheduled_task {
 
                         $status = $progress > 0 ? 'in_progress' : 'not_started';
 
-                        if ($tmCompletion) {
-                            if ($tmCompletion->progress != $progress && $tmCompletion->status != 'completed') {
-                                $tmCompletion->progress = $progress;
-                                $tmCompletion->status = $status;
-                                $tmCompletion->timemodified = $now;
-                                $DB->update_record('local_tm_completions', $tmCompletion);
-                                $syncCount++;
+                        if ($tmcompletion) {
+                            if ($tmcompletion->progress != $progress && $tmcompletion->status != 'completed') {
+                                $tmcompletion->progress = $progress;
+                                $tmcompletion->status = $status;
+                                $tmcompletion->timemodified = $now;
+                                $DB->update_record('local_trainingmatrix_compl', $tmcompletion);
+                                $synccount++;
                             }
                         } else {
-                            $newCompletion = new \stdClass();
-                            $newCompletion->userid = $staff->userid;
-                            $newCompletion->competencyid = $cc->competencyid;
-                            $newCompletion->courseid = $cc->courseid;
-                            $newCompletion->status = $status;
-                            $newCompletion->progress = $progress;
-                            $newCompletion->notified = 0;
-                            $newCompletion->timecreated = $now;
-                            $newCompletion->timemodified = $now;
-                            $DB->insert_record('local_tm_completions', $newCompletion);
-                            $syncCount++;
+                            $newcompletion = new \stdClass();
+                            $newcompletion->userid = $staff->userid;
+                            $newcompletion->competencyid = $cc->competencyid;
+                            $newcompletion->courseid = $cc->courseid;
+                            $newcompletion->status = $status;
+                            $newcompletion->progress = $progress;
+                            $newcompletion->notified = 0;
+                            $newcompletion->timecreated = $now;
+                            $newcompletion->timemodified = $now;
+                            $DB->insert_record('local_trainingmatrix_compl', $newcompletion);
+                            $synccount++;
                         }
                     }
                 }
             }
         }
 
-        mtrace("Synced $syncCount training completion records.");
+        mtrace("Synced $synccount training completion records.");
     }
 }

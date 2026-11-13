@@ -26,7 +26,7 @@ require_once($CFG->libdir . '/csvlib.class.php');
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class import_form extends \moodleform {
     /**
@@ -35,21 +35,38 @@ class import_form extends \moodleform {
     protected function definition() {
         $mform = $this->_form;
 
-        $mform->addElement('filepicker', 'csvfile', get_string('import_file', 'local_trainingmatrix'), null,
-            ['accepted_types' => ['.csv', '.txt'], 'maxbytes' => 0]);
+        $mform->addElement(
+            'filepicker',
+            'csvfile',
+            get_string('import_file', 'local_trainingmatrix'),
+            null,
+            ['accepted_types' => ['.csv', '.txt'], 'maxbytes' => 0]
+        );
         $mform->addRule('csvfile', null, 'required');
 
-        $mform->addElement('select', 'delimiter', get_string('import_delimiter', 'local_trainingmatrix'),
-            \csv_import_reader::get_delimiter_list());
+        $mform->addElement(
+            'select',
+            'delimiter',
+            get_string('import_delimiter', 'local_trainingmatrix'),
+            \csv_import_reader::get_delimiter_list()
+        );
         $mform->setDefault('delimiter', 'comma');
 
-        $mform->addElement('select', 'encoding', get_string('import_encoding', 'local_trainingmatrix'),
-            \core_text::get_encodings());
+        $mform->addElement(
+            'select',
+            'encoding',
+            get_string('import_encoding', 'local_trainingmatrix'),
+            \core_text::get_encodings()
+        );
         $mform->setDefault('encoding', 'UTF-8');
 
         if (\local_trainingmatrix\local\tenancy::clients()) {
-            $mform->addElement('select', 'clientid', get_string('import_defaultclient', 'local_trainingmatrix'),
-                \local_trainingmatrix\local\tenancy::staff_options());
+            $mform->addElement(
+                'select',
+                'clientid',
+                get_string('import_defaultclient', 'local_trainingmatrix'),
+                \local_trainingmatrix\local\tenancy::staff_options()
+            );
             $mform->setDefault('clientid', $this->_customdata['clientid'] ?? 0);
             $mform->addHelpButton('clientid', 'import_defaultclient', 'local_trainingmatrix');
         } else {

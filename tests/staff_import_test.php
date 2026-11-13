@@ -25,14 +25,15 @@ global $CFG;
 require_once($CFG->libdir . '/csvlib.class.php');
 require_once($CFG->dirroot . '/cohort/lib.php');
 
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\staff_import::class)]
 /**
  * Staff CSV import.
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers \local_trainingmatrix\local\staff_import
  */
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\staff_import::class)]
 final class staff_import_test extends \advanced_testcase {
     /**
      * Reset caches between tests.
@@ -73,13 +74,13 @@ final class staff_import_test extends \advanced_testcase {
      */
     private function position_with_course(string $name, int $courseid, int $clientid = 0): int {
         global $DB;
-        $pos = $DB->insert_record('local_tm_positions', (object)['name' => $name, 'level' => 1, 'clientid' => $clientid,
+        $pos = $DB->insert_record('local_trainingmatrix_pos', (object)['name' => $name, 'level' => 1, 'clientid' => $clientid,
             'timecreated' => time(), 'timemodified' => time()]);
-        $comp = $DB->insert_record('local_tm_competencies', (object)['name' => $name . ' induction', 'mandatory' => 1,
+        $comp = $DB->insert_record('local_trainingmatrix_comp', (object)['name' => $name . ' induction', 'mandatory' => 1,
             'clientid' => $clientid, 'timecreated' => time(), 'timemodified' => time()]);
-        $DB->insert_record('local_tm_comp_courses', (object)['competencyid' => $comp, 'courseid' => $courseid,
+        $DB->insert_record('local_trainingmatrix_compcrs', (object)['competencyid' => $comp, 'courseid' => $courseid,
             'expirymonths' => 0, 'notifydays' => 30, 'timecreated' => time()]);
-        $DB->insert_record('local_tm_pos_comps', (object)['positionid' => $pos, 'competencyid' => $comp,
+        $DB->insert_record('local_trainingmatrix_poscomp', (object)['positionid' => $pos, 'competencyid' => $comp,
             'mandatory' => 1, 'timecreated' => time()]);
         return (int)$pos;
     }
@@ -95,7 +96,7 @@ final class staff_import_test extends \advanced_testcase {
         $al = $gen->create_user(['username' => 'al', 'email' => 'al@example.com']);
         $boss = $gen->create_user(['username' => 'boss']);
         $cy = $gen->create_user(['username' => 'cy']);
-        $DB->insert_record('local_tm_departments', (object)['name' => 'Warehouse', 'clientid' => 0, 'sortorder' => 0,
+        $DB->insert_record('local_trainingmatrix_dept', (object)['name' => 'Warehouse', 'clientid' => 0, 'sortorder' => 0,
             'timecreated' => time(), 'timemodified' => time()]);
 
         $csv = "Username,Email,Employee ID,Position,Department,Manager,Start date,Status\n" .
@@ -106,7 +107,7 @@ final class staff_import_test extends \advanced_testcase {
         [$plans, $results] = $this->run_csv(new staff_import(0, false), $csv);
 
         $this->assertSame(['ok', 'ok', 'skipped', 'skipped'], array_values($results));
-        $staff = $DB->get_record('local_tm_staff', ['userid' => $jo->id], '*', MUST_EXIST);
+        $staff = $DB->get_record('local_trainingmatrix_staff', ['userid' => $jo->id], '*', MUST_EXIST);
         $this->assertSame('E1', $staff->employeeid);
         $this->assertEquals($boss->id, $staff->managerid);
         $this->assertTrue(is_enrolled(\context_course::instance($course->id), $jo->id, '', true));
@@ -118,9 +119,9 @@ final class staff_import_test extends \advanced_testcase {
         [$plans, $results] = $this->run_csv(new staff_import(0, true), $csv);
         $this->assertSame('update', $plans[0]->action);
         $this->assertSame('ok', $results[5]);
-        $this->assertTrue($DB->record_exists('local_tm_positions', ['name' => 'Forklift Driver']));
-        $this->assertEquals(1, $DB->count_records('local_tm_staff', ['userid' => $jo->id]));
-        $this->assertTrue($DB->record_exists('local_tm_staff', ['userid' => $cy->id]));
+        $this->assertTrue($DB->record_exists('local_trainingmatrix_pos', ['name' => 'Forklift Driver']));
+        $this->assertEquals(1, $DB->count_records('local_trainingmatrix_staff', ['userid' => $jo->id]));
+        $this->assertTrue($DB->record_exists('local_trainingmatrix_staff', ['userid' => $cy->id]));
     }
 
     public function test_import_respects_clients(): void {
@@ -131,6 +132,9 @@ final class staff_import_test extends \advanced_testcase {
         $course = $gen->create_course();
         $member = $gen->create_user(['username' => 'member']);
         $stranger = $gen->create_user(['username' => 'stranger']);
+        if (!class_exists(\local_clientportal\manager::class)) {
+            $this->markTestSkipped('Client Portal is not installed.');
+        }
         $acme = \local_clientportal\manager::save_client((object)['name' => 'Acme', 'active' => 1]);
         cohort_add_member(\local_clientportal\manager::get_client($acme)->cohortid, $member->id);
         tenancy::reset_cache();
@@ -140,7 +144,7 @@ final class staff_import_test extends \advanced_testcase {
         [$plans, $results] = $this->run_csv(new staff_import(), $csv);
         $this->assertSame('ok', $results[2]);
         $this->assertSame('skipped', $results[3], 'Only the client\'s learners can be its staff.');
-        $this->assertEquals($acme, $DB->get_field('local_tm_staff', 'clientid', ['userid' => $member->id]));
+        $this->assertEquals($acme, $DB->get_field('local_trainingmatrix_staff', 'clientid', ['userid' => $member->id]));
 
         // A client's own position is invisible to other rows.
         [$plans] = $this->run_csv(new staff_import(), "username,position\nstranger,Picker\n");

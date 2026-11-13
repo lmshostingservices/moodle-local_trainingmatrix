@@ -5,6 +5,14 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Read-only training for the authenticated learner.
@@ -45,8 +53,12 @@ $items = array_values(array_filter($data['items'], static function (array $item)
         return true;
     }
     foreach (['name', 'source', 'status'] as $field) {
-        if (core_text::strpos(core_text::strtolower((string)$item[$field]),
-                core_text::strtolower($search)) !== false) {
+        if (
+            core_text::strpos(
+                core_text::strtolower((string)$item[$field]),
+                core_text::strtolower($search)
+            ) !== false
+        ) {
             return true;
         }
     }
@@ -70,27 +82,46 @@ echo html_writer::start_tag('form', [
 ]);
 echo html_writer::start_div('row');
 echo html_writer::start_div('col-md-7 mb-3');
-echo html_writer::tag('label', s(get_string('learner_search', 'local_trainingmatrix')),
-    ['for' => 'training-search']);
+echo html_writer::tag(
+    'label',
+    s(get_string('learner_search', 'local_trainingmatrix')),
+    ['for' => 'training-search']
+);
 echo html_writer::empty_tag('input', [
     'type' => 'search', 'id' => 'training-search', 'name' => 'search', 'value' => $search,
     'class' => 'form-control', 'aria-describedby' => 'training-search-help',
 ]);
-echo html_writer::tag('small', s(get_string('learner_searchhelp', 'local_trainingmatrix')),
-    ['id' => 'training-search-help', 'class' => 'form-text text-muted']);
+echo html_writer::tag(
+    'small',
+    s(get_string('learner_searchhelp', 'local_trainingmatrix')),
+    ['id' => 'training-search-help', 'class' => 'form-text text-muted']
+);
 echo html_writer::end_div();
 echo html_writer::start_div('col-md-5 mb-3');
-echo html_writer::tag('label', s(get_string('learner_kind', 'local_trainingmatrix')),
-    ['for' => 'training-kind']);
-echo html_writer::select($kinds, 'kind', $kind,
+echo html_writer::tag(
+    'label',
+    s(get_string('learner_kind', 'local_trainingmatrix')),
+    ['for' => 'training-kind']
+);
+echo html_writer::select(
+    $kinds,
+    'kind',
+    $kind,
     ['' => get_string('learner_allkinds', 'local_trainingmatrix')],
-    ['id' => 'training-kind', 'class' => 'form-control']);
+    ['id' => 'training-kind', 'class' => 'form-control']
+);
 echo html_writer::end_div();
 echo html_writer::end_div();
-echo html_writer::tag('button', s(get_string('learner_applyfilters', 'local_trainingmatrix')),
-    ['type' => 'submit', 'class' => 'btn btn-primary mr-2']);
-echo html_writer::link(new moodle_url('/local/trainingmatrix/my.php'),
-    s(get_string('learner_clearfilters', 'local_trainingmatrix')), ['class' => 'btn btn-secondary']);
+echo html_writer::tag(
+    'button',
+    s(get_string('learner_applyfilters', 'local_trainingmatrix')),
+    ['type' => 'submit', 'class' => 'btn btn-primary mr-2']
+);
+echo html_writer::link(
+    new moodle_url('/local/trainingmatrix/my.php'),
+    s(get_string('learner_clearfilters', 'local_trainingmatrix')),
+    ['class' => 'btn btn-secondary']
+);
 echo html_writer::end_tag('form');
 
 if (!$items) {

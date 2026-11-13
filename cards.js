@@ -8,6 +8,27 @@
                 return;
             }
             root.dataset.tmxReady = '1';
+            // Size classes for the card area (replaces CSS container queries, which Moodle's CSS checks reject).
+            // tmx-wN is set while the card area is N px wide or less; --tmx-cqi is 1% of its width.
+            var sizes = [900, 620, 520, 380];
+            var resize = function(width) {
+                sizes.forEach(function(size) {
+                    root.classList.toggle('tmx-w' + size, width <= size);
+                });
+                root.style.setProperty('--tmx-cqi', (width / 100) + 'px');
+            };
+            if (window.ResizeObserver) {
+                new ResizeObserver(function(entries) {
+                    resize(entries[0].contentRect.width);
+                }).observe(root);
+            } else {
+                var measure = function() {
+                    var style = window.getComputedStyle(root);
+                    resize(root.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+                };
+                window.addEventListener('resize', measure);
+                measure();
+            }
             var toolbar = root.querySelector('.tmx-toolbar');
             toolbar.hidden = false;
             var search = root.querySelector('[data-tmx-search]');

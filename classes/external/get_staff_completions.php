@@ -34,13 +34,26 @@ use core_external\external_value;
 use core_external\external_single_structure;
 use core_external\external_multiple_structure;
 
+/**
+ * Web service: a staff member's competency completions.
+ */
 class get_staff_completions extends external_api {
+    /**
+     * Describe the parameters.
+     *
+     * @return external_function_parameters
+     */
     public static function execute_parameters() {
         return new external_function_parameters([
             'userid' => new external_value(PARAM_INT, 'User ID to get completions for', VALUE_DEFAULT, 0),
         ]);
     }
 
+    /**
+     * Get a staff member's completions.
+     *
+     * @param int $userid The user id; 0 for the current user.
+     */
     public static function execute($userid = 0) {
         global $USER, $DB;
 
@@ -95,7 +108,7 @@ class get_staff_completions extends external_api {
             'userid' => $targetuserid,
             'position' => $compliance['position']->name ?? '',
             'department' => !empty($compliance['staff']->departmentid) ?
-                (string)$DB->get_field('local_tm_departments', 'name', ['id' => $compliance['staff']->departmentid]) : '',
+                (string)$DB->get_field('local_trainingmatrix_dept', 'name', ['id' => $compliance['staff']->departmentid]) : '',
             'completions' => $completions,
             'stats' => [
                 'total' => $compliance['stats']['total'],
@@ -109,6 +122,11 @@ class get_staff_completions extends external_api {
         ];
     }
 
+    /**
+     * Describe the result.
+     *
+     * @return external_single_structure
+     */
     public static function execute_returns() {
         return new external_single_structure([
             'userid' => new external_value(PARAM_INT, 'User ID'),

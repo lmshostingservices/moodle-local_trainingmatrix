@@ -1,3 +1,19 @@
+# Changelog
+
+All notable changes to this plugin are listed here.
+
+## [1.1.3] - 2026-11-13
+
+### Changed
+- The database tables now use the plugin's own name as their prefix (for example local_tm_staff becomes local_trainingmatrix_staff), as Moodle requires. The upgrade renames them in place and keeps every record.
+
+### Fixed
+- The code passes Moodle's full code, PHPDoc and CSS checks on Moodle 4.4 to 5.3 and main.
+- Training cards adapt to narrow spaces with a small script instead of CSS container queries. They look the same at every width.
+- Card action links are marked as buttons, so themes keep their white text without forcing styles.
+- Tests that need Client Portal are skipped when it is not installed.
+- The Client label beside the client picker could not be read with the Premium SaaS theme; it now takes the header's text colour.
+
 ## [1.1.2] - 2026-11-13
 
 ### Added

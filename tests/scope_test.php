@@ -25,15 +25,17 @@ global $CFG;
 require_once($CFG->dirroot . '/local/trainingmatrix/lib.php');
 require_once($CFG->dirroot . '/cohort/lib.php');
 
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\scope::class)]
+#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\tenancy::class)]
 /**
  * Client and team scoping.
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers \local_trainingmatrix\local\scope
+ * @covers \local_trainingmatrix\local\tenancy
  */
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\scope::class)]
-#[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\tenancy::class)]
 final class scope_test extends \advanced_testcase {
     /**
      * Reset caches between tests.
@@ -51,7 +53,7 @@ final class scope_test extends \advanced_testcase {
      */
     private function department(array $fields = []): int {
         global $DB;
-        return (int)$DB->insert_record('local_tm_departments', (object)($fields + [
+        return (int)$DB->insert_record('local_trainingmatrix_dept', (object)($fields + [
             'name' => 'Dept ' . random_string(4), 'clientid' => 0, 'sortorder' => 0,
             'timecreated' => time(), 'timemodified' => time()]));
     }
@@ -64,7 +66,7 @@ final class scope_test extends \advanced_testcase {
      */
     private function position(array $fields = []): int {
         global $DB;
-        return (int)$DB->insert_record('local_tm_positions', (object)($fields + [
+        return (int)$DB->insert_record('local_trainingmatrix_pos', (object)($fields + [
             'name' => 'Pos ' . random_string(4), 'clientid' => 0, 'level' => 1,
             'timecreated' => time(), 'timemodified' => time()]));
     }
@@ -81,8 +83,8 @@ final class scope_test extends \advanced_testcase {
         global $DB;
         $record = (object)($fields + ['userid' => $userid, 'positionid' => $positionid, 'status' => 'active',
             'clientid' => 0, 'timecreated' => time(), 'timemodified' => time()]);
-        $record->id = $DB->insert_record('local_tm_staff', $record);
-        return $DB->get_record('local_tm_staff', ['id' => $record->id]);
+        $record->id = $DB->insert_record('local_trainingmatrix_staff', $record);
+        return $DB->get_record('local_trainingmatrix_staff', ['id' => $record->id]);
     }
 
     /**
@@ -93,6 +95,9 @@ final class scope_test extends \advanced_testcase {
      * @return int client id
      */
     private function client(string $name, array $learners): int {
+        if (!class_exists(\local_clientportal\manager::class)) {
+            $this->markTestSkipped('Client Portal is not installed.');
+        }
         $id = \local_clientportal\manager::save_client((object)['name' => $name, 'active' => 1]);
         $client = \local_clientportal\manager::get_client($id);
         foreach ($learners as $userid) {
@@ -132,7 +137,7 @@ final class scope_test extends \advanced_testcase {
         // The SQL and the PHP checks agree.
         global $DB;
         [$sql, $params] = $scope->staff_condition('s');
-        $ids = $DB->get_fieldset_sql("SELECT s.userid FROM {local_tm_staff} s WHERE $sql", $params);
+        $ids = $DB->get_fieldset_sql("SELECT s.userid FROM {local_trainingmatrix_staff} s WHERE $sql", $params);
         $this->assertEqualsCanonicalizing([$direct->id, $deptmember->id, $subdeptmember->id], $ids);
 
         // Statistics and the learner view follow the same scope.
@@ -174,12 +179,19 @@ final class scope_test extends \advanced_testcase {
         $scope = scope::current();
         $this->assertSame($acme, $scope->clientid());
         [$sql, $params] = $scope->staff_condition('s');
-        $this->assertEquals([$a->id], $DB->get_fieldset_sql("SELECT s.userid FROM {local_tm_staff} s WHERE $sql", $params));
+        $this->assertEquals(
+            [$a->id],
+            $DB->get_fieldset_sql("SELECT s.userid FROM {local_trainingmatrix_staff} s WHERE $sql", $params)
+        );
         [$sql, $params] = $scope->definition_condition('p');
-        $this->assertEqualsCanonicalizing([$shared, $acmepos],
-            $DB->get_fieldset_sql("SELECT p.id FROM {local_tm_positions} p WHERE $sql", $params));
-        $this->assertNotContains($bhppos, $DB->get_fieldset_sql("SELECT p.id FROM {local_tm_positions} p WHERE $sql",
-            $params));
+        $this->assertEqualsCanonicalizing(
+            [$shared, $acmepos],
+            $DB->get_fieldset_sql("SELECT p.id FROM {local_trainingmatrix_pos} p WHERE $sql", $params)
+        );
+        $this->assertNotContains($bhppos, $DB->get_fieldset_sql(
+            "SELECT p.id FROM {local_trainingmatrix_pos} p WHERE $sql",
+            $params
+        ));
         // The filter is a view preference: an admin can still open anyone.
         $this->assertTrue(scope::can_view_user((int)$b->id));
 
@@ -228,18 +240,18 @@ final class scope_test extends \advanced_testcase {
         // A suspended enrolment is never silently lifted.
         $gen->enrol_user($blocked->id, $course->id, 'student', 'manual', 0, 0, ENROL_USER_SUSPENDED);
 
-        $comp = $DB->insert_record('local_tm_competencies', (object)['name' => 'WHS', 'mandatory' => 1, 'clientid' => 0,
+        $comp = $DB->insert_record('local_trainingmatrix_comp', (object)['name' => 'WHS', 'mandatory' => 1, 'clientid' => 0,
             'timecreated' => time(), 'timemodified' => time()]);
-        $DB->insert_record('local_tm_comp_courses', (object)['competencyid' => $comp, 'courseid' => $course->id,
+        $DB->insert_record('local_trainingmatrix_compcrs', (object)['competencyid' => $comp, 'courseid' => $course->id,
             'expirymonths' => 12, 'notifydays' => 30, 'timecreated' => time()]);
-        $DB->insert_record('local_tm_pos_comps', (object)['positionid' => $pos, 'competencyid' => $comp,
+        $DB->insert_record('local_trainingmatrix_poscomp', (object)['positionid' => $pos, 'competencyid' => $comp,
             'mandatory' => 1, 'timecreated' => time()]);
 
         $result = local_trainingmatrix_provision_positions([$pos]);
         $this->assertSame(1, $result['enrolled']);
         $this->assertCount(1, $result['failed']);
         $this->assertTrue(is_enrolled(\context_course::instance($course->id), $ok->id, '', true));
-        $this->assertTrue($DB->record_exists('local_tm_completions', ['userid' => $ok->id, 'competencyid' => $comp]));
-        $this->assertFalse($DB->record_exists('local_tm_completions', ['userid' => $blocked->id]));
+        $this->assertTrue($DB->record_exists('local_trainingmatrix_compl', ['userid' => $ok->id, 'competencyid' => $comp]));
+        $this->assertFalse($DB->record_exists('local_trainingmatrix_compl', ['userid' => $blocked->id]));
     }
 }
