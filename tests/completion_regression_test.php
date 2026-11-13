@@ -24,6 +24,9 @@ defined('MOODLE_INTERNAL') || die();
  * @package local_trainingmatrix
  * @copyright 2026 LMS Labs
  * @license https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers ::local_trainingmatrix_get_staff_compliance
+ * @covers ::local_trainingmatrix_sync_course_completion
+ * @covers \local_trainingmatrix\external\export_report
  */
 #[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_get_staff_compliance')]
 #[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_sync_course_completion')]

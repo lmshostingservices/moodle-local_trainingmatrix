@@ -24,6 +24,7 @@ defined('MOODLE_INTERNAL') || die();
  * @package local_trainingmatrix
  * @copyright 2026 LMS-Labs
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers \local_trainingmatrix\learner_training
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\learner_training::class)]
 final class learner_training_test extends \advanced_testcase {

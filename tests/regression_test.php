@@ -22,6 +22,11 @@ namespace local_trainingmatrix;
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers \local_trainingmatrix\local\ai_client
+ * @covers \local_trainingmatrix\external\get_compliance_stats
+ * @covers ::local_trainingmatrix_expiry_date
+ * @covers ::local_trainingmatrix_get_staff_compliance
+ * @covers ::local_trainingmatrix_user_options
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\ai_client::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\external\get_compliance_stats::class)]

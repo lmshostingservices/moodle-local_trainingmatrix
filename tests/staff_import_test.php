@@ -31,6 +31,7 @@ require_once($CFG->dirroot . '/cohort/lib.php');
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers \local_trainingmatrix\local\staff_import
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\local\staff_import::class)]
 final class staff_import_test extends \advanced_testcase {
