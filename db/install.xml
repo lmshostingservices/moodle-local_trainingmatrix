@@ -2,7 +2,7 @@
 <XMLDB PATH="local/trainingmatrix/db" VERSION="20261112" COMMENT="Training Matrix HCM tables">
   <TABLES>
     <!-- Departments -->
-    <TABLE NAME="local_tm_departments" COMMENT="Organisation departments">
+    <TABLE NAME="local_trainingmatrix_dept" COMMENT="Organisation departments">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true"/>
@@ -16,7 +16,7 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="parentid" TYPE="foreign" FIELDS="parentid" REFTABLE="local_tm_departments" REFFIELDS="id"/>
+        <KEY NAME="parentid" TYPE="foreign" FIELDS="parentid" REFTABLE="local_trainingmatrix_dept" REFFIELDS="id"/>
         <KEY NAME="managerid" TYPE="foreign" FIELDS="managerid" REFTABLE="user" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
@@ -25,7 +25,7 @@
     </TABLE>
 
     <!-- Positions/Job Roles -->
-    <TABLE NAME="local_tm_positions" COMMENT="Job positions/roles">
+    <TABLE NAME="local_trainingmatrix_pos" COMMENT="Job positions/roles">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true"/>
@@ -38,7 +38,7 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="departmentid" TYPE="foreign" FIELDS="departmentid" REFTABLE="local_tm_departments" REFFIELDS="id"/>
+        <KEY NAME="departmentid" TYPE="foreign" FIELDS="departmentid" REFTABLE="local_trainingmatrix_dept" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
         <INDEX NAME="clientid" UNIQUE="false" FIELDS="clientid"/>
@@ -46,7 +46,7 @@
     </TABLE>
 
     <!-- Competencies -->
-    <TABLE NAME="local_tm_competencies" COMMENT="Required competencies">
+    <TABLE NAME="local_trainingmatrix_comp" COMMENT="Required competencies">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true"/>
@@ -69,7 +69,7 @@
     </TABLE>
 
     <!-- Competency to Course Link -->
-    <TABLE NAME="local_tm_comp_courses" COMMENT="Links competencies to Moodle courses">
+    <TABLE NAME="local_trainingmatrix_compcrs" COMMENT="Links competencies to Moodle courses">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="competencyid" TYPE="int" LENGTH="10" NOTNULL="true"/>
@@ -80,7 +80,7 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="competencyid" TYPE="foreign" FIELDS="competencyid" REFTABLE="local_tm_competencies" REFFIELDS="id"/>
+        <KEY NAME="competencyid" TYPE="foreign" FIELDS="competencyid" REFTABLE="local_trainingmatrix_comp" REFFIELDS="id"/>
         <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
@@ -89,7 +89,7 @@
     </TABLE>
 
     <!-- Position to Competency Link -->
-    <TABLE NAME="local_tm_pos_comps" COMMENT="Links positions to required competencies">
+    <TABLE NAME="local_trainingmatrix_poscomp" COMMENT="Links positions to required competencies">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="positionid" TYPE="int" LENGTH="10" NOTNULL="true"/>
@@ -99,8 +99,8 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="positionid" TYPE="foreign" FIELDS="positionid" REFTABLE="local_tm_positions" REFFIELDS="id"/>
-        <KEY NAME="competencyid" TYPE="foreign" FIELDS="competencyid" REFTABLE="local_tm_competencies" REFFIELDS="id"/>
+        <KEY NAME="positionid" TYPE="foreign" FIELDS="positionid" REFTABLE="local_trainingmatrix_pos" REFFIELDS="id"/>
+        <KEY NAME="competencyid" TYPE="foreign" FIELDS="competencyid" REFTABLE="local_trainingmatrix_comp" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
         <INDEX NAME="pos_comp" UNIQUE="true" FIELDS="positionid, competencyid"/>
@@ -108,7 +108,7 @@
     </TABLE>
 
     <!-- Staff Assignments -->
-    <TABLE NAME="local_tm_staff" COMMENT="Staff member position assignments">
+    <TABLE NAME="local_trainingmatrix_staff" COMMENT="Staff member position assignments">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
@@ -126,8 +126,8 @@
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
-        <KEY NAME="positionid" TYPE="foreign" FIELDS="positionid" REFTABLE="local_tm_positions" REFFIELDS="id"/>
-        <KEY NAME="departmentid" TYPE="foreign" FIELDS="departmentid" REFTABLE="local_tm_departments" REFFIELDS="id"/>
+        <KEY NAME="positionid" TYPE="foreign" FIELDS="positionid" REFTABLE="local_trainingmatrix_pos" REFFIELDS="id"/>
+        <KEY NAME="departmentid" TYPE="foreign" FIELDS="departmentid" REFTABLE="local_trainingmatrix_dept" REFFIELDS="id"/>
         <KEY NAME="managerid" TYPE="foreign" FIELDS="managerid" REFTABLE="user" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
@@ -139,7 +139,7 @@
     </TABLE>
 
     <!-- Competency Completion Tracking -->
-    <TABLE NAME="local_tm_completions" COMMENT="Staff competency completion records">
+    <TABLE NAME="local_trainingmatrix_compl" COMMENT="Staff competency completion records">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
@@ -156,7 +156,7 @@
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
-        <KEY NAME="competencyid" TYPE="foreign" FIELDS="competencyid" REFTABLE="local_tm_competencies" REFFIELDS="id"/>
+        <KEY NAME="competencyid" TYPE="foreign" FIELDS="competencyid" REFTABLE="local_trainingmatrix_comp" REFFIELDS="id"/>
         <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
@@ -167,7 +167,7 @@
     </TABLE>
 
     <!-- Notification Log -->
-    <TABLE NAME="local_tm_notifications" COMMENT="Notification history">
+    <TABLE NAME="local_trainingmatrix_notif" COMMENT="Notification history">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
@@ -182,7 +182,7 @@
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
         <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
-        <KEY NAME="completionid" TYPE="foreign" FIELDS="completionid" REFTABLE="local_tm_completions" REFFIELDS="id"/>
+        <KEY NAME="completionid" TYPE="foreign" FIELDS="completionid" REFTABLE="local_trainingmatrix_compl" REFFIELDS="id"/>
       </KEYS>
     </TABLE>
   </TABLES>

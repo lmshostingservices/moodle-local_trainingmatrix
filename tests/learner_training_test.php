@@ -1,6 +1,18 @@
 <?php
 // This file is part of Moodle - http://moodle.org/
-// Moodle is free software under the GNU General Public License v3 or later.
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace local_trainingmatrix;
 
@@ -108,8 +120,10 @@ final class learner_training_test extends \advanced_testcase {
         $this->assertEquals($actor->id, $USER->id);
         assign_capability('mod/certificatepro:viewreport', CAP_ALLOW, $role, $context->id);
         accesslib_clear_all_caches_for_unit_testing();
-        $this->assertInstanceOf(\moodle_url::class,
-            $find(learner_training::for_user((int)$subject->id))['url']);
+        $this->assertInstanceOf(
+            \moodle_url::class,
+            $find(learner_training::for_user((int)$subject->id))['url']
+        );
         $DB->set_field('certificatepro_issues', 'revoked', 1, ['id' => $issueid]);
         $this->assertNull($find(learner_training::for_user((int)$subject->id))['url']);
         $this->assertEquals(1, $DB->count_records('certificatepro_issues'));

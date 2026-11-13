@@ -32,7 +32,7 @@ use stdClass;
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class staff_import {
     /** @var string[] Columns the importer understands. */
@@ -141,8 +141,11 @@ final class staff_import {
 
         // Client.
         if (($row['client'] ?? '') !== '') {
-            $clientid = array_search(\core_text::strtolower($row['client']),
-                array_map('core_text::strtolower', tenancy::clients()), true);
+            $clientid = array_search(
+                \core_text::strtolower($row['client']),
+                array_map('core_text::strtolower', tenancy::clients()),
+                true
+            );
             if ($clientid === false) {
                 $plan->errors[] = get_string('import_err_noclient', 'local_trainingmatrix', s($row['client']));
             } else {
@@ -159,8 +162,11 @@ final class staff_import {
         } else if ($plan->employeeid !== '') {
             $key = $plan->employeeid . '|' . $plan->clientid;
             if (isset($this->seenemployees[$key])) {
-                $plan->errors[] = get_string('import_err_duplicateemployee', 'local_trainingmatrix',
-                    $this->seenemployees[$key]);
+                $plan->errors[] = get_string(
+                    'import_err_duplicateemployee',
+                    'local_trainingmatrix',
+                    $this->seenemployees[$key]
+                );
             } else {
                 $this->seenemployees[$key] = $line;
             }
@@ -170,26 +176,38 @@ final class staff_import {
         if ($plan->positionname === '') {
             $plan->errors[] = get_string('import_err_noposition', 'local_trainingmatrix');
         } else {
-            $plan->positionid = $this->find_definition('local_tm_positions', $plan->positionname, $plan->clientid);
+            $plan->positionid = $this->find_definition('local_trainingmatrix_pos', $plan->positionname, $plan->clientid);
             if (!$plan->positionid) {
                 if ($this->createmissing) {
-                    $plan->warnings[] = get_string('import_willcreate_position', 'local_trainingmatrix',
-                        s($plan->positionname));
+                    $plan->warnings[] = get_string(
+                        'import_willcreate_position',
+                        'local_trainingmatrix',
+                        s($plan->positionname)
+                    );
                 } else {
-                    $plan->errors[] = get_string('import_err_positionmissing', 'local_trainingmatrix',
-                        s($plan->positionname));
+                    $plan->errors[] = get_string(
+                        'import_err_positionmissing',
+                        'local_trainingmatrix',
+                        s($plan->positionname)
+                    );
                 }
             }
         }
         if ($plan->departmentname !== '') {
-            $plan->departmentid = $this->find_definition('local_tm_departments', $plan->departmentname, $plan->clientid);
+            $plan->departmentid = $this->find_definition('local_trainingmatrix_dept', $plan->departmentname, $plan->clientid);
             if (!$plan->departmentid) {
                 if ($this->createmissing) {
-                    $plan->warnings[] = get_string('import_willcreate_department', 'local_trainingmatrix',
-                        s($plan->departmentname));
+                    $plan->warnings[] = get_string(
+                        'import_willcreate_department',
+                        'local_trainingmatrix',
+                        s($plan->departmentname)
+                    );
                 } else {
-                    $plan->errors[] = get_string('import_err_departmentmissing', 'local_trainingmatrix',
-                        s($plan->departmentname));
+                    $plan->errors[] = get_string(
+                        'import_err_departmentmissing',
+                        'local_trainingmatrix',
+                        s($plan->departmentname)
+                    );
                 }
             }
         }
@@ -230,7 +248,7 @@ final class staff_import {
         if ($plan->userid) {
             $existing = null;
             if ($plan->employeeid !== '') {
-                $existing = $DB->get_record('local_tm_staff', ['employeeid' => $plan->employeeid,
+                $existing = $DB->get_record('local_trainingmatrix_staff', ['employeeid' => $plan->employeeid,
                     'clientid' => $plan->clientid], '*', IGNORE_MULTIPLE);
                 if ($existing && (int)$existing->userid !== $plan->userid) {
                     $plan->errors[] = get_string('import_err_employeetaken', 'local_trainingmatrix', s($plan->employeeid));
@@ -238,7 +256,7 @@ final class staff_import {
                 }
             }
             if (!$existing) {
-                $records = $DB->get_records_sql("SELECT * FROM {local_tm_staff} WHERE userid = :userid
+                $records = $DB->get_records_sql("SELECT * FROM {local_trainingmatrix_staff} WHERE userid = :userid
                     ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END, id DESC", ['userid' => $plan->userid], 0, 1);
                 $existing = $records ? reset($records) : null;
             }
@@ -274,16 +292,28 @@ final class staff_import {
         $transaction = $DB->start_delegated_transaction();
         try {
             $now = time();
-            $positionid = $plan->positionid ?: $this->create_definition('local_tm_positions', $plan->positionname,
-                $plan->clientid, $now);
+            $positionid = $plan->positionid ?: $this->create_definition(
+                'local_trainingmatrix_pos',
+                $plan->positionname,
+                $plan->clientid,
+                $now
+            );
             $departmentid = $plan->departmentid;
             if ($plan->departmentname !== '' && !$departmentid) {
-                $departmentid = $this->create_definition('local_tm_departments', $plan->departmentname, $plan->clientid,
-                    $now);
+                $departmentid = $this->create_definition(
+                    'local_trainingmatrix_dept',
+                    $plan->departmentname,
+                    $plan->clientid,
+                    $now
+                );
             }
-            if ($plan->status === 'active' && $DB->record_exists_select('local_tm_staff',
+            if (
+                $plan->status === 'active' && $DB->record_exists_select(
+                    'local_trainingmatrix_staff',
                     'userid = :userid AND status = :status AND id <> :id',
-                    ['userid' => $plan->userid, 'status' => 'active', 'id' => $plan->staffid])) {
+                    ['userid' => $plan->userid, 'status' => 'active', 'id' => $plan->staffid]
+                )
+            ) {
                 throw new \moodle_exception('staff_duplicateactive', 'local_trainingmatrix');
             }
             $record = (object)[
@@ -294,10 +324,10 @@ final class staff_import {
             ];
             if ($plan->staffid) {
                 $record->id = $plan->staffid;
-                $DB->update_record('local_tm_staff', $record);
+                $DB->update_record('local_trainingmatrix_staff', $record);
             } else {
                 $record->timecreated = $now;
-                $record->id = $DB->insert_record('local_tm_staff', $record);
+                $record->id = $DB->insert_record('local_trainingmatrix_staff', $record);
             }
             if ($record->status === 'active') {
                 local_trainingmatrix_enrol_required_courses((int)$record->userid, (int)$positionid);
@@ -360,8 +390,10 @@ final class staff_import {
         if (!checkdate($mo, $d, $y)) {
             return null;
         }
-        $date = new \DateTimeImmutable(sprintf('%04d-%02d-%02d 00:00:00', $y, $mo, $d),
-            \core_date::get_server_timezone_object());
+        $date = new \DateTimeImmutable(
+            sprintf('%04d-%02d-%02d 00:00:00', $y, $mo, $d),
+            \core_date::get_server_timezone_object()
+        );
         return $date->getTimestamp();
     }
 
@@ -383,9 +415,16 @@ final class staff_import {
             $tried = true;
             $select = $DB->sql_equal($field, ':value', false) .
                 ' AND deleted = 0 AND mnethostid = :mnethost';
-            $users = $DB->get_records_select('user', $select,
+            $users = $DB->get_records_select(
+                'user',
+                $select,
                 ['value' => $field === 'username' ? \core_text::strtolower($value) : $value,
-                 'mnethost' => $CFG->mnet_localhost_id], 'id', '*', 0, 2);
+                'mnethost' => $CFG->mnet_localhost_id],
+                'id',
+                '*',
+                0,
+                2
+            );
             if (count($users) > 1) {
                 if ($plan) {
                     $plan->errors[] = get_string('import_err_ambiguoususer', 'local_trainingmatrix', s($value));
@@ -422,9 +461,15 @@ final class staff_import {
         if (isset($this->created[$key])) {
             return $this->created[$key];
         }
-        $records = $DB->get_records_select($table,
+        $records = $DB->get_records_select(
+            $table,
             $DB->sql_equal('name', ':name', false) . ' AND (clientid = 0 OR clientid = :client)',
-            ['name' => $name, 'client' => $clientid], 'clientid DESC, id ASC', 'id, clientid', 0, 1);
+            ['name' => $name, 'client' => $clientid],
+            'clientid DESC, id ASC',
+            'id, clientid',
+            0,
+            1
+        );
         return $records ? (int)reset($records)->id : 0;
     }
 
@@ -445,7 +490,7 @@ final class staff_import {
         }
         $record = (object)['name' => clean_param($name, PARAM_TEXT), 'description' => '', 'clientid' => $clientid,
             'timecreated' => $now, 'timemodified' => $now];
-        if ($table === 'local_tm_positions') {
+        if ($table === 'local_trainingmatrix_pos') {
             $record->level = 1;
         } else {
             $record->sortorder = 0;

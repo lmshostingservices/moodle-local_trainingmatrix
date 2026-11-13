@@ -33,14 +33,33 @@ use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
 
+/**
+ * Web service: compliance figures for a department or client.
+ */
 class get_compliance_stats extends external_api {
+    /**
+     * Describe the parameters.
+     *
+     * @return external_function_parameters
+     */
     public static function execute_parameters() {
         return new external_function_parameters([
             'departmentid' => new external_value(PARAM_INT, 'Optional department filter', VALUE_DEFAULT, 0),
-            'clientid' => new external_value(PARAM_INT, 'Client filter for staff overseers: -1 remembered choice, 0 all, or a client id', VALUE_DEFAULT, -1),
+            'clientid' => new external_value(
+                PARAM_INT,
+                'Client filter for staff overseers: -1 remembered choice, 0 all, or a client id',
+                VALUE_DEFAULT,
+                -1
+            ),
         ]);
     }
 
+    /**
+     * Get compliance figures for a department or client.
+     *
+     * @param int $departmentid Department id; 0 for all departments.
+     * @param int $clientid Client id; -1 for the current scope.
+     */
     public static function execute($departmentid = 0, $clientid = -1) {
         global $DB;
 
@@ -63,11 +82,16 @@ class get_compliance_stats extends external_api {
             'fully_compliant' => $stats['fully_compliant'],
             'expiring_soon' => $stats['expiring_soon'],
             'expired' => $stats['expired'],
-            'compliance_rate' => $stats['total_staff'] > 0 ? 
+            'compliance_rate' => $stats['total_staff'] > 0 ?
                 round(($stats['fully_compliant'] / $stats['total_staff']) * 100) : 0,
         ];
     }
 
+    /**
+     * Describe the result.
+     *
+     * @return external_single_structure
+     */
     public static function execute_returns() {
         return new external_single_structure([
             'total_staff' => new external_value(PARAM_INT, 'Total active staff'),

@@ -19,11 +19,14 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
+/**
+ * Add Training Matrix links to the main navigation.
+ *
+ * @param global_navigation $nav The navigation tree.
+ */
 function local_trainingmatrix_extend_navigation(global_navigation $nav) {
     global $PAGE, $USER;
 
@@ -44,6 +47,12 @@ function local_trainingmatrix_extend_navigation(global_navigation $nav) {
     );
 }
 
+/**
+ * Add Training Matrix links to the settings navigation.
+ *
+ * @param settings_navigation $nav The settings navigation.
+ * @param context $context The current context.
+ */
 function local_trainingmatrix_extend_settings_navigation(settings_navigation $nav, context $context) {
     global $PAGE;
 
@@ -63,6 +72,14 @@ function local_trainingmatrix_extend_settings_navigation(settings_navigation $na
     }
 }
 
+/**
+ * Add the learner's training link to their profile page.
+ *
+ * @param core_user\output\myprofile\tree $tree The profile tree.
+ * @param stdClass $user The profile owner.
+ * @param bool $iscurrentuser True if viewing their own profile.
+ * @param stdClass|null $course The course, if any.
+ */
 function local_trainingmatrix_myprofile_navigation(core_user\output\myprofile\tree $tree, $user, $iscurrentuser, $course) {
     global $DB;
 
@@ -71,52 +88,63 @@ function local_trainingmatrix_myprofile_navigation(core_user\output\myprofile\tr
         return;
     }
 
-    $staff = $DB->get_record('local_tm_staff', ['userid' => $user->id, 'status' => 'active'], '*', IGNORE_MULTIPLE);
+    $staff = $DB->get_record('local_trainingmatrix_staff', ['userid' => $user->id, 'status' => 'active'], '*', IGNORE_MULTIPLE);
     if ($staff && ($iscurrentuser || \local_trainingmatrix\local\scope::can_view_user((int)$user->id))) {
         $url = new moodle_url('/local/trainingmatrix/staff.php', ['id' => $staff->id]);
-        $node = new core_user\output\myprofile\node('miscellaneous', 'trainingmatrix',
-            get_string('trainingmatrix', 'local_trainingmatrix'), null, $url);
+        $node = new core_user\output\myprofile\node(
+            'miscellaneous',
+            'trainingmatrix',
+            get_string('trainingmatrix', 'local_trainingmatrix'),
+            null,
+            $url
+        );
         $tree->add_node($node);
     }
 }
 
+/**
+ * Get a staff member's position, department and compliance figures.
+ *
+ * @param int $userid The user id.
+ * @return array|null Compliance data, or null if they are not active staff.
+ */
 function local_trainingmatrix_get_staff_compliance($userid) {
     global $DB;
 
-    $staff = $DB->get_record('local_tm_staff', ['userid' => $userid, 'status' => 'active'], '*', IGNORE_MULTIPLE);
+    $staff = $DB->get_record('local_trainingmatrix_staff', ['userid' => $userid, 'status' => 'active'], '*', IGNORE_MULTIPLE);
     if (!$staff) {
         return null;
     }
 
-    $position = $DB->get_record('local_tm_positions', ['id' => $staff->positionid]);
+    $position = $DB->get_record('local_trainingmatrix_pos', ['id' => $staff->positionid]);
     if (!$position) {
         return null;
     }
 
-    $requiredComps = $DB->get_records_sql("
+    $requiredcomps = $DB->get_records_sql("
         SELECT pc.*, c.name, c.code, c.category, c.mandatory as comp_mandatory
-        FROM {local_tm_pos_comps} pc
-        JOIN {local_tm_competencies} c ON c.id = pc.competencyid
+        FROM {local_trainingmatrix_poscomp} pc
+        JOIN {local_trainingmatrix_comp} c ON c.id = pc.competencyid
         WHERE pc.positionid = ?
         ORDER BY c.category, c.name
     ", [$staff->positionid]);
 
     // When a competency has more than one tracking row (one per linked course), the best row wins rather
     // than whichever row the database happens to return last.
-    $completions = $DB->get_records('local_tm_completions', ['userid' => $userid]);
+    $completions = $DB->get_records('local_trainingmatrix_compl', ['userid' => $userid]);
     $rank = ['completed' => 4, 'expiring_soon' => 3, 'expired' => 2, 'in_progress' => 1, 'not_started' => 0];
-    $completionsByComp = [];
+    $completionsbycomp = [];
     foreach ($completions as $c) {
-        $prev = $completionsByComp[$c->competencyid] ?? null;
+        $prev = $completionsbycomp[$c->competencyid] ?? null;
         $crank = $rank[$c->status] ?? 0;
         $prank = $prev ? ($rank[$prev->status] ?? 0) : -1;
         if (!$prev || $crank > $prank || ($crank === $prank && (int)$c->expirydate > (int)$prev->expirydate)) {
-            $completionsByComp[$c->competencyid] = $c;
+            $completionsbycomp[$c->competencyid] = $c;
         }
     }
 
     $stats = [
-        'total' => count($requiredComps),
+        'total' => count($requiredcomps),
         'completed' => 0,
         'in_progress' => 0,
         'expired' => 0,
@@ -126,10 +154,10 @@ function local_trainingmatrix_get_staff_compliance($userid) {
     ];
 
     $now = time();
-    $soonThreshold = $now + (30 * 24 * 60 * 60);
+    $soonthreshold = $now + (30 * 24 * 60 * 60);
 
-    foreach ($requiredComps as &$comp) {
-        $comp->completion = $completionsByComp[$comp->competencyid] ?? null;
+    foreach ($requiredcomps as &$comp) {
+        $comp->completion = $completionsbycomp[$comp->competencyid] ?? null;
 
         if (!$comp->completion) {
             $comp->status = 'not_started';
@@ -142,7 +170,7 @@ function local_trainingmatrix_get_staff_compliance($userid) {
                 if ($comp->completion->expirydate && $comp->completion->expirydate < $now) {
                     $comp->status = 'expired';
                     $stats['expired']++;
-                } else if ($comp->completion->expirydate && $comp->completion->expirydate < $soonThreshold) {
+                } else if ($comp->completion->expirydate && $comp->completion->expirydate < $soonthreshold) {
                     $comp->status = 'expiring_soon';
                     $stats['expiring_soon']++;
                     $stats['completed']++;
@@ -168,7 +196,7 @@ function local_trainingmatrix_get_staff_compliance($userid) {
     return [
         'staff' => $staff,
         'position' => $position,
-        'competencies' => $requiredComps,
+        'competencies' => $requiredcomps,
         'stats' => $stats,
     ];
 }
@@ -199,8 +227,8 @@ function local_trainingmatrix_enrol_required_courses(int $userid, int $positioni
     global $DB, $CFG;
     require_once($CFG->libdir . '/enrollib.php');
     $links = $DB->get_records_sql("
-        SELECT cc.* FROM {local_tm_comp_courses} cc
-        JOIN {local_tm_pos_comps} pc ON pc.competencyid = cc.competencyid
+        SELECT cc.* FROM {local_trainingmatrix_compcrs} cc
+        JOIN {local_trainingmatrix_poscomp} pc ON pc.competencyid = cc.competencyid
         WHERE pc.positionid = ?", [$positionid]);
     $courses = [];
     foreach ($links as $link) {
@@ -237,8 +265,8 @@ function local_trainingmatrix_enrol_required_courses(int $userid, int $positioni
             continue;
         }
         $key = ['userid' => $userid, 'competencyid' => $link->competencyid, 'courseid' => $link->courseid];
-        if (!$DB->record_exists('local_tm_completions', $key)) {
-            $DB->insert_record('local_tm_completions', (object)($key + [
+        if (!$DB->record_exists('local_trainingmatrix_compl', $key)) {
+            $DB->insert_record('local_trainingmatrix_compl', (object)($key + [
                 'status' => 'not_started', 'progress' => 0, 'timecreated' => time(), 'timemodified' => time(),
             ]));
         }
@@ -265,7 +293,7 @@ function local_trainingmatrix_provision_positions(array $positionids): array {
     }
     [$insql, $params] = $DB->get_in_or_equal($positionids, SQL_PARAMS_NAMED);
     $holders = $DB->get_records_sql("SELECT s.id, s.userid, s.positionid
-                                       FROM {local_tm_staff} s
+                                       FROM {local_trainingmatrix_staff} s
                                        JOIN {user} u ON u.id = s.userid AND u.deleted = 0 AND u.suspended = 0
                                       WHERE s.status = 'active' AND s.positionid $insql", $params);
     foreach ($holders as $holder) {
@@ -338,15 +366,22 @@ function local_trainingmatrix_status_for_expiry(?int $expirydate, int $now): str
     return $expirydate < $now + 30 * DAYSECS ? 'expiring_soon' : 'completed';
 }
 
+/**
+ * Record the competencies a user completes when they complete a course.
+ *
+ * @param int $courseid The completed course.
+ * @param int $userid The user who completed it.
+ * @return bool True when completions were checked, false when nothing applies.
+ */
 function local_trainingmatrix_sync_course_completion($courseid, $userid) {
     global $DB;
 
     // Match the scheduled sync's active-staff and position-requirement scope.
     $mappings = $DB->get_records_sql("
         SELECT DISTINCT cc.*
-        FROM {local_tm_comp_courses} cc
-        JOIN {local_tm_pos_comps} pc ON pc.competencyid = cc.competencyid
-        JOIN {local_tm_staff} s ON s.positionid = pc.positionid
+        FROM {local_trainingmatrix_compcrs} cc
+        JOIN {local_trainingmatrix_poscomp} pc ON pc.competencyid = cc.competencyid
+        JOIN {local_trainingmatrix_staff} s ON s.positionid = pc.positionid
         WHERE cc.courseid = ? AND s.userid = ? AND s.status = 'active'
     ", [$courseid, $userid]);
     if (!$mappings) {
@@ -362,17 +397,17 @@ function local_trainingmatrix_sync_course_completion($courseid, $userid) {
         return false;
     }
 
-    foreach ($mappings as $compCourse) {
-        $expirydate = local_trainingmatrix_expiry_date((int)$completion->timecompleted, (int)$compCourse->expirymonths);
-        $existing = $DB->get_record('local_tm_completions', [
+    foreach ($mappings as $compcourse) {
+        $expirydate = local_trainingmatrix_expiry_date((int)$completion->timecompleted, (int)$compcourse->expirymonths);
+        $existing = $DB->get_record('local_trainingmatrix_compl', [
             'userid' => $userid,
-            'competencyid' => $compCourse->competencyid,
+            'competencyid' => $compcourse->competencyid,
             'courseid' => $courseid,
         ]);
         $now = time();
         $record = new stdClass();
         $record->userid = $userid;
-        $record->competencyid = $compCourse->competencyid;
+        $record->competencyid = $compcourse->competencyid;
         $record->courseid = $courseid;
         $record->completiondate = $completion->timecompleted;
         $record->expirydate = $expirydate;
@@ -384,11 +419,11 @@ function local_trainingmatrix_sync_course_completion($courseid, $userid) {
             if ($existing->completiondate != $record->completiondate || $existing->expirydate != $expirydate) {
                 $record->notified = 0;
             }
-            $DB->update_record('local_tm_completions', $record);
+            $DB->update_record('local_trainingmatrix_compl', $record);
         } else {
             $record->timecreated = $now;
             $record->notified = 0;
-            $DB->insert_record('local_tm_completions', $record);
+            $DB->insert_record('local_trainingmatrix_compl', $record);
         }
     }
 
@@ -402,8 +437,10 @@ function local_trainingmatrix_sync_course_completion($courseid, $userid) {
  * @param int $departmentid optional department filter
  * @return array
  */
-function local_trainingmatrix_get_compliance_stats(?\local_trainingmatrix\local\scope $scope = null,
-        int $departmentid = 0) {
+function local_trainingmatrix_get_compliance_stats(
+    ?\local_trainingmatrix\local\scope $scope = null,
+    int $departmentid = 0
+) {
     global $DB;
 
     $where = "s.status = 'active'";
@@ -416,10 +453,10 @@ function local_trainingmatrix_get_compliance_stats(?\local_trainingmatrix\local\
         $where .= ' AND s.departmentid = :tmdept';
         $params['tmdept'] = $departmentid;
     }
-    $staffRecords = $DB->get_records_sql("SELECT s.* FROM {local_tm_staff} s WHERE $where", $params);
+    $staffrecords = $DB->get_records_sql("SELECT s.* FROM {local_trainingmatrix_staff} s WHERE $where", $params);
 
     $stats = [
-        'total_staff' => count($staffRecords),
+        'total_staff' => count($staffrecords),
         'fully_compliant' => 0,
         'expiring_soon' => 0,
         'expired' => 0,
@@ -427,7 +464,7 @@ function local_trainingmatrix_get_compliance_stats(?\local_trainingmatrix\local\
         'not_started' => 0,
     ];
 
-    foreach ($staffRecords as $staff) {
+    foreach ($staffrecords as $staff) {
         $compliance = local_trainingmatrix_get_staff_compliance($staff->userid);
         if ($compliance && $compliance['stats']['compliance_rate'] == 100 && $compliance['stats']['expired'] == 0) {
             $stats['fully_compliant']++;
@@ -482,10 +519,16 @@ function local_trainingmatrix_client_form_group(int $selected): string {
     }
     return html_writer::div(
         html_writer::tag('label', get_string('client', 'local_trainingmatrix'), ['class' => 'tm-form-label']) .
-        html_writer::select(\local_trainingmatrix\local\tenancy::definition_options(), 'clientid', $selected, false,
-            ['class' => 'tm-form-select']) .
+        html_writer::select(
+            \local_trainingmatrix\local\tenancy::definition_options(),
+            'clientid',
+            $selected,
+            false,
+            ['class' => 'tm-form-select']
+        ) .
         html_writer::tag('div', get_string('client_definition_help', 'local_trainingmatrix'), ['class' => 'tm-muted small']),
-        'tm-form-group');
+        'tm-form-group'
+    );
 }
 
 /**
@@ -525,20 +568,20 @@ function local_trainingmatrix_definition_conflict(string $type, int $id, int $cl
 
     // What this record points at.
     if (!empty($refs['parentid'])) {
-        $parent = (int)$DB->get_field('local_tm_departments', 'clientid', ['id' => $refs['parentid']]);
+        $parent = (int)$DB->get_field('local_trainingmatrix_dept', 'clientid', ['id' => $refs['parentid']]);
         if (!$fits($parent, $clientid)) {
             return $bad(get_string('parent_department', 'local_trainingmatrix'));
         }
     }
     if (!empty($refs['departmentid'])) {
-        $dept = (int)$DB->get_field('local_tm_departments', 'clientid', ['id' => $refs['departmentid']]);
+        $dept = (int)$DB->get_field('local_trainingmatrix_dept', 'clientid', ['id' => $refs['departmentid']]);
         if (!$fits($dept, $clientid)) {
             return $bad(get_string('departments', 'local_trainingmatrix'));
         }
     }
     if (!empty($refs['competencyids'])) {
         [$insql, $params] = $DB->get_in_or_equal($refs['competencyids'], SQL_PARAMS_NAMED);
-        foreach ($DB->get_fieldset_select('local_tm_competencies', 'clientid', "id $insql", $params) as $comp) {
+        foreach ($DB->get_fieldset_select('local_trainingmatrix_comp', 'clientid', "id $insql", $params) as $comp) {
             if (!$fits((int)$comp, $clientid)) {
                 return $bad(get_string('competencies', 'local_trainingmatrix'));
             }
@@ -552,23 +595,28 @@ function local_trainingmatrix_definition_conflict(string $type, int $id, int $cl
     // What points at this record: each dependant must be the same client.
     $dependants = [
         'department' => [
-            ['local_tm_departments', 'parentid', 'departments'],
-            ['local_tm_positions', 'departmentid', 'positions'],
-            ['local_tm_staff', 'departmentid', 'staff'],
+            ['local_trainingmatrix_dept', 'parentid', 'departments'],
+            ['local_trainingmatrix_pos', 'departmentid', 'positions'],
+            ['local_trainingmatrix_staff', 'departmentid', 'staff'],
         ],
         'position' => [
-            ['local_tm_staff', 'positionid', 'staff'],
+            ['local_trainingmatrix_staff', 'positionid', 'staff'],
         ],
         'competency' => [],
     ];
     foreach ($dependants[$type] as [$table, $field, $label]) {
-        if ($DB->record_exists_select($table, "$field = :id AND clientid <> :client",
-                ['id' => $id, 'client' => $clientid])) {
+        if (
+            $DB->record_exists_select(
+                $table,
+                "$field = :id AND clientid <> :client",
+                ['id' => $id, 'client' => $clientid]
+            )
+        ) {
             return $bad(get_string($label, 'local_trainingmatrix'));
         }
     }
     if ($type === 'competency') {
-        $sql = "SELECT 1 FROM {local_tm_pos_comps} pc JOIN {local_tm_positions} p ON p.id = pc.positionid
+        $sql = "SELECT 1 FROM {local_trainingmatrix_poscomp} pc JOIN {local_trainingmatrix_pos} p ON p.id = pc.positionid
                  WHERE pc.competencyid = :id AND p.clientid <> :client";
         if ($DB->record_exists_sql($sql, ['id' => $id, 'client' => $clientid])) {
             return $bad(get_string('positions', 'local_trainingmatrix'));

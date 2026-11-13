@@ -19,7 +19,7 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -31,7 +31,7 @@ $string['trainingmatrix:view'] = 'View AI Training Matrix';
 $string['trainingmatrix:viewall'] = 'View all staff compliance';
 $string['trainingmatrix:assign'] = 'Assign staff to positions';
 
-// Navigation
+// Navigation.
 $string['dashboard'] = 'Dashboard';
 $string['departments'] = 'Departments';
 $string['positions'] = 'Positions';
@@ -41,7 +41,7 @@ $string['reports'] = 'Reports';
 $string['settings'] = 'Settings';
 $string['notifications'] = 'Notifications';
 
-// Dashboard
+// Dashboard.
 $string['dashboard_title'] = 'AI Training Matrix Dashboard';
 $string['compliance_overview'] = 'Compliance Overview';
 $string['total_staff'] = 'Total Staff';
@@ -51,7 +51,7 @@ $string['overdue'] = 'Overdue';
 $string['not_started'] = 'Not Started';
 $string['in_progress'] = 'In Progress';
 
-// Departments
+// Departments.
 $string['add_department'] = 'Add Department';
 $string['edit_department'] = 'Edit Department';
 $string['delete_department'] = 'Delete Department';
@@ -62,7 +62,7 @@ $string['no_departments'] = 'No departments configured';
 $string['department_saved'] = 'Department saved successfully';
 $string['department_deleted'] = 'Department deleted';
 
-// Positions
+// Positions.
 $string['add_position'] = 'Add Position';
 $string['edit_position'] = 'Edit Position';
 $string['delete_position'] = 'Delete Position';
@@ -74,7 +74,7 @@ $string['no_positions'] = 'No positions configured';
 $string['position_saved'] = 'Position saved successfully';
 $string['position_deleted'] = 'Position deleted';
 
-// Competencies
+// Competencies.
 $string['add_competency'] = 'Add Competency';
 $string['edit_competency'] = 'Edit Competency';
 $string['delete_competency'] = 'Delete Competency';
@@ -91,7 +91,7 @@ $string['competency_saved'] = 'Competency saved successfully';
 $string['competency_deleted'] = 'Competency deleted';
 $string['select_course'] = 'Select a course...';
 
-// Staff
+// Staff.
 $string['add_staff'] = 'Add Staff Member';
 $string['edit_staff'] = 'Edit Staff Member';
 $string['assign_position'] = 'Assign Position';
@@ -110,7 +110,7 @@ $string['select_user'] = 'Select user...';
 $string['select_position'] = 'Select position...';
 $string['select_department'] = 'Select department...';
 
-// Competency Status
+// Competency Status.
 $string['status_not_started'] = 'Not Started';
 $string['status_in_progress'] = 'In Progress';
 $string['status_completed'] = 'Completed';
@@ -119,7 +119,7 @@ $string['status_expiring_soon'] = 'Expiring Soon';
 $string['status_valid'] = 'Valid';
 $string['status_needs_redo'] = 'Needs Redo';
 
-// Reports
+// Reports.
 $string['compliance_report'] = 'Compliance Report';
 $string['staff_report'] = 'Staff Training Report';
 $string['department_report'] = 'Department Report';
@@ -136,7 +136,7 @@ $string['expiry_date'] = 'Expiry Date';
 $string['progress'] = 'Progress';
 $string['actions'] = 'Actions';
 
-// Notifications
+// Notifications.
 $string['notification_expiry_warning'] = 'Training Expiry Warning';
 $string['notification_expired'] = 'Training Expired';
 $string['notification_new_requirement'] = 'New Training Requirement';
@@ -147,7 +147,7 @@ $string['notification_body_expiry'] = 'Your "{$a->competency}" training will exp
 $string['notification_body_expired'] = 'Your "{$a->competency}" training expired on {$a->date}. Please complete the refresher course "{$a->course}" as soon as possible to maintain compliance.';
 $string['notification_body_new'] = 'You have been assigned a new training requirement: "{$a->competency}". Please complete the course "{$a->course}" by {$a->date}.';
 
-// Categories
+// Categories.
 $string['category_safety'] = 'Safety';
 $string['category_technical'] = 'Technical';
 $string['category_leadership'] = 'Leadership';
@@ -156,7 +156,7 @@ $string['category_professional'] = 'Professional Development';
 $string['category_induction'] = 'Induction';
 $string['category_other'] = 'Other';
 
-// Tooltips
+// Tooltips.
 $string['tooltip_expiry_months'] = 'Number of months after course completion before retraining is required. Enter 0 if this competency does not expire.';
 $string['tooltip_notify_days'] = 'Number of days before expiry to send notification to staff member';
 $string['tooltip_mandatory'] = 'Mandatory competencies must be completed for compliance';
@@ -165,7 +165,7 @@ $string['tooltip_valid'] = 'Training is current and valid';
 $string['tooltip_expired'] = 'Training has expired and needs to be redone';
 $string['tooltip_expiring'] = 'Training will expire soon - action required';
 
-// Actions
+// Actions.
 $string['view_details'] = 'View Details';
 $string['enrol_course'] = 'Enrol in Course';
 $string['view_course'] = 'View Course';
@@ -175,7 +175,7 @@ $string['reset_progress'] = 'Reset Progress';
 $string['bulk_assign'] = 'Bulk Assign';
 $string['import_staff'] = 'Import Staff';
 
-// Errors
+// Errors.
 $string['error_department_required'] = 'Department name is required';
 $string['error_position_required'] = 'Position name is required';
 $string['error_competency_required'] = 'Competency name is required';
@@ -183,34 +183,34 @@ $string['error_course_required'] = 'A linked course is required';
 $string['error_user_required'] = 'Please select a user';
 $string['error_position_required_staff'] = 'Please select a position';
 
-// Success messages
+// Success messages.
 $string['changes_saved'] = 'Changes saved successfully';
 $string['item_deleted'] = 'Item deleted successfully';
 $string['notifications_sent'] = 'Notifications sent successfully';
 $string['staff_enrolled'] = 'Staff enrolled in required courses';
 
-// Stats
+// Stats.
 $string['compliance_rate'] = 'Compliance Rate';
 $string['training_completed'] = 'Training Completed';
 $string['training_pending'] = 'Training Pending';
 $string['avg_completion_time'] = 'Avg. Completion Time';
 $string['days'] = 'days';
 
-// Scheduled tasks
+// Scheduled tasks.
 $string['task_check_expiry'] = 'Check training expiry dates';
 $string['task_send_notifications'] = 'Send training notifications';
 $string['task_sync_completions'] = 'Sync course completions';
 
-// Privacy
-$string['privacy:metadata:local_tm_staff'] = 'Staff position assignments';
-$string['privacy:metadata:local_tm_completions'] = 'Training completion records';
-$string['privacy:metadata:local_tm_notifications'] = 'Notification history';
+// Privacy.
+$string['privacy:metadata:local_trainingmatrix_staff'] = 'Staff position assignments';
+$string['privacy:metadata:local_trainingmatrix_compl'] = 'Training completion records';
+$string['privacy:metadata:local_trainingmatrix_notif'] = 'Notification history';
 $string['no_position_assigned'] = 'You are not assigned to a position.';
 $string['assignment_access_blocked'] = 'Cannot automatically grant access to course {$a}. Check suspended enrolments, prerequisites and the manual enrolment method. The staff assignment was not saved.';
-$string['privacy:metadata:local_tm_departments'] = 'Department manager assignments';
+$string['privacy:metadata:local_trainingmatrix_dept'] = 'Department manager assignments';
 $string['privacy:metadata:field'] = 'An identifier, assignment detail, training outcome, notification or timestamp associated with the user.';
 
-// AI Settings
+// AI Settings.
 $string['api_settings'] = 'AI API Settings';
 $string['api_settings_desc'] = 'Configure the connection to Essay Grader AI for generating competencies.';
 $string['api_url'] = 'API URL';
@@ -224,7 +224,7 @@ $string['credits_settings_desc'] = 'Configure credit usage for AI features.';
 $string['credits_per_position'] = 'Credits per Position';
 $string['credits_per_position_desc'] = 'Number of credits consumed when generating AI competencies for a position.';
 
-// AI Generation
+// AI Generation.
 $string['ai_generate_competencies'] = 'AI Generate Competencies';
 $string['generating_competencies'] = 'Generating competencies...';
 $string['competencies_generated'] = 'Competencies generated successfully';

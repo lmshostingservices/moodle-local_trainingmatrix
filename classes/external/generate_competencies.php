@@ -24,21 +24,32 @@
 
 namespace local_trainingmatrix\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
 use core_external\external_multiple_structure;
 
+/**
+ * Web service: suggest competencies for a position.
+ */
 class generate_competencies extends external_api {
+    /**
+     * Describe the parameters.
+     *
+     * @return external_function_parameters
+     */
     public static function execute_parameters() {
         return new external_function_parameters([
             'positionid' => new external_value(PARAM_INT, 'Position ID to generate competencies for'),
         ]);
     }
 
+    /**
+     * Suggest competencies for a position.
+     *
+     * @param mixed $positionid The position id.
+     */
     public static function execute($positionid) {
         $params = self::validate_parameters(self::execute_parameters(), [
             'positionid' => $positionid,
@@ -61,6 +72,11 @@ class generate_competencies extends external_api {
         ];
     }
 
+    /**
+     * Describe the result.
+     *
+     * @return external_single_structure
+     */
     public static function execute_returns() {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'Success status'),

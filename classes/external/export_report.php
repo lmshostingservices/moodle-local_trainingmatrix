@@ -24,23 +24,42 @@
 
 namespace local_trainingmatrix\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
 
+/**
+ * Web service: export a Training Matrix report.
+ */
 class export_report extends external_api {
+    /**
+     * Describe the parameters.
+     *
+     * @return external_function_parameters
+     */
     public static function execute_parameters() {
         return new external_function_parameters([
             'format' => new external_value(PARAM_ALPHA, 'Export format: csv or excel', VALUE_DEFAULT, 'csv'),
             'departmentid' => new external_value(PARAM_INT, 'Filter by department', VALUE_DEFAULT, 0),
             'reporttype' => new external_value(PARAM_ALPHA, 'Report type: compliance, staff, expiry', VALUE_DEFAULT, 'compliance'),
-            'clientid' => new external_value(PARAM_INT, 'Client filter for staff overseers: -1 remembered choice, 0 all, or a client id', VALUE_DEFAULT, -1),
+            'clientid' => new external_value(
+                PARAM_INT,
+                'Client filter for staff overseers: -1 remembered choice, 0 all, or a client id',
+                VALUE_DEFAULT,
+                -1
+            ),
         ]);
     }
 
+    /**
+     * Export a report as a file.
+     *
+     * @param string $format File format: csv or xlsx.
+     * @param int $departmentid Department id; 0 for all departments.
+     * @param string $reporttype Report name.
+     * @param int $clientid Client id; -1 for the current scope.
+     */
     public static function execute($format = 'csv', $departmentid = 0, $reporttype = 'compliance', $clientid = -1) {
         global $DB, $CFG;
 
@@ -60,8 +79,10 @@ class export_report extends external_api {
             throw new \required_capability_exception($context, 'local/trainingmatrix:viewall', 'nopermissions', '');
         }
 
-        if (!in_array($params['format'], ['csv', 'excel'], true) ||
-                !in_array($params['reporttype'], ['compliance', 'staff', 'expiry'], true)) {
+        if (
+            !in_array($params['format'], ['csv', 'excel'], true) ||
+                !in_array($params['reporttype'], ['compliance', 'staff', 'expiry'], true)
+        ) {
             throw new \invalid_parameter_exception('Unsupported report format or type');
         }
 
@@ -70,30 +91,44 @@ class export_report extends external_api {
 
         switch ($params['reporttype']) {
             case 'compliance':
-                $headers = ['Staff Name', 'Email', 'Position', 'Department', 'Compliance Rate', 'Completed', 'Expired', 'Expiring Soon'];
-                
-                [$scopesql, $params_sql] = $scope->staff_condition('s');
+                $headers = [
+                    'Staff Name',
+                    'Email',
+                    'Position',
+                    'Department',
+                    'Compliance Rate',
+                    'Completed',
+                    'Expired',
+                    'Expiring Soon',
+                ];
+
+                [$scopesql, $paramssql] = $scope->staff_condition('s');
                 $where = "s.status = 'active' AND $scopesql";
 
                 if ($params['departmentid'] > 0) {
                     $where .= " AND s.departmentid = :exdept";
-                    $params_sql['exdept'] = $params['departmentid'];
+                    $paramssql['exdept'] = $params['departmentid'];
                 }
 
                 $staff = $DB->get_records_sql("
                     SELECT s.*, u.firstname, u.lastname, u.email, p.name as position_name, d.name as department_name
-                    FROM {local_tm_staff} s
+                    FROM {local_trainingmatrix_staff} s
                     JOIN {user} u ON u.id = s.userid
-                    LEFT JOIN {local_tm_positions} p ON p.id = s.positionid
-                    LEFT JOIN {local_tm_departments} d ON d.id = s.departmentid
+                    LEFT JOIN {local_trainingmatrix_pos} p ON p.id = s.positionid
+                    LEFT JOIN {local_trainingmatrix_dept} d ON d.id = s.departmentid
                     WHERE $where
                     ORDER BY u.lastname, u.firstname
-                ", $params_sql);
+                ", $paramssql);
 
                 foreach ($staff as $s) {
                     $compliance = \local_trainingmatrix_get_staff_compliance($s->userid);
-                    $stats = $compliance ? $compliance['stats'] : ['compliance_rate' => 0, 'completed' => 0, 'expired' => 0, 'expiring_soon' => 0];
-                    
+                    $stats = $compliance ? $compliance['stats'] : [
+                        'compliance_rate' => 0,
+                        'completed' => 0,
+                        'expired' => 0,
+                        'expiring_soon' => 0,
+                    ];
+
                     $rows[] = [
                         $s->firstname . ' ' . $s->lastname,
                         $s->email,
@@ -109,14 +144,14 @@ class export_report extends external_api {
 
             case 'expiry':
                 $headers = ['Staff Name', 'Email', 'Competency', 'Code', 'Expiry Date', 'Days Remaining', 'Course'];
-                
+
                 $now = time();
-                $thirtyDays = $now + (30 * 24 * 60 * 60);
+                $thirtydays = $now + (30 * 24 * 60 * 60);
                 [$scopesql, $scopeparams] = $scope->user_condition('tc.userid');
                 $filter = " AND $scopesql";
-                $filterparams = ['now' => $now, 'soon' => $thirtyDays] + $scopeparams;
+                $filterparams = ['now' => $now, 'soon' => $thirtydays] + $scopeparams;
                 if ($params['departmentid'] > 0) {
-                    $filter .= ' AND EXISTS (SELECT 1 FROM {local_tm_staff} s
+                    $filter .= ' AND EXISTS (SELECT 1 FROM {local_trainingmatrix_staff} s
                         WHERE s.userid = tc.userid AND s.departmentid = :exdept)';
                     $filterparams['exdept'] = $params['departmentid'];
                 }
@@ -125,8 +160,8 @@ class export_report extends external_api {
                     SELECT tc.*, c.name as competency_name, c.code,
                            u.firstname, u.lastname, u.email,
                            course.fullname as course_name
-                    FROM {local_tm_completions} tc
-                    JOIN {local_tm_competencies} c ON c.id = tc.competencyid
+                    FROM {local_trainingmatrix_compl} tc
+                    JOIN {local_trainingmatrix_comp} c ON c.id = tc.competencyid
                     JOIN {user} u ON u.id = tc.userid
                     LEFT JOIN {course} course ON course.id = tc.courseid
                     WHERE tc.status IN ('completed', 'expiring_soon')
@@ -137,20 +172,20 @@ class export_report extends external_api {
                 ", $filterparams);
 
                 foreach ($expirations as $e) {
-                    $daysRemaining = ceil(($e->expirydate - $now) / 86400);
+                    $daysremaining = ceil(($e->expirydate - $now) / 86400);
                     $rows[] = [
                         $e->firstname . ' ' . $e->lastname,
                         $e->email,
                         $e->competency_name,
                         $e->code ?? '',
                         userdate($e->expirydate, '%Y-%m-%d', 99, false),
-                        $daysRemaining,
+                        $daysremaining,
                         $e->course_name ?? '',
                     ];
                 }
                 break;
 
-            default: // staff
+            default: // Staff.
                 $headers = ['Staff Name', 'Email', 'Position', 'Department', 'Status', 'Start Date', 'Employee ID'];
                 [$scopesql, $filterparams] = $scope->staff_condition('s');
                 $filter = "WHERE $scopesql";
@@ -158,13 +193,13 @@ class export_report extends external_api {
                     $filter .= ' AND s.departmentid = :exdept';
                     $filterparams['exdept'] = $params['departmentid'];
                 }
-                
+
                 $staff = $DB->get_records_sql("
                     SELECT s.*, u.firstname, u.lastname, u.email, p.name as position_name, d.name as department_name
-                    FROM {local_tm_staff} s
+                    FROM {local_trainingmatrix_staff} s
                     JOIN {user} u ON u.id = s.userid
-                    LEFT JOIN {local_tm_positions} p ON p.id = s.positionid
-                    LEFT JOIN {local_tm_departments} d ON d.id = s.departmentid
+                    LEFT JOIN {local_trainingmatrix_pos} p ON p.id = s.positionid
+                    LEFT JOIN {local_trainingmatrix_dept} d ON d.id = s.departmentid
                     $filter
                     ORDER BY u.lastname, u.firstname
                 ", $filterparams);
@@ -192,8 +227,11 @@ class export_report extends external_api {
                     $cell = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($column + 1)
                         . ($rowindex + 1);
                     // Explicit strings prevent names or other user data becoming formulas.
-                    $sheet->setCellValueExplicit($cell, (string)$value,
-                        \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                    $sheet->setCellValueExplicit(
+                        $cell,
+                        (string)$value,
+                        \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING
+                    );
                 }
             }
             ob_start();
@@ -237,6 +275,11 @@ class export_report extends external_api {
         ];
     }
 
+    /**
+     * Describe the result.
+     *
+     * @return external_single_structure
+     */
     public static function execute_returns() {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'Success status'),

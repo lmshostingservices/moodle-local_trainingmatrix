@@ -23,7 +23,7 @@ namespace local_trainingmatrix\local;
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class tenancy {
     /** @var bool|null cached availability */

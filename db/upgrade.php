@@ -19,7 +19,7 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /**
@@ -58,6 +58,27 @@ function xmldb_local_trainingmatrix_upgrade($oldversion) {
             $dbman->add_index($table, $index);
         }
         upgrade_plugin_savepoint(true, 2026111200, 'local', 'trainingmatrix');
+    }
+
+    if ($oldversion < 2026111301) {
+        // Rename the tables to use the plugin's own name as their prefix. Data, keys and indexes move with them.
+        $renames = [
+            'local_tm_notifications' => 'local_trainingmatrix_notif',
+            'local_tm_comp_courses' => 'local_trainingmatrix_compcrs',
+            'local_tm_competencies' => 'local_trainingmatrix_comp',
+            'local_tm_completions' => 'local_trainingmatrix_compl',
+            'local_tm_departments' => 'local_trainingmatrix_dept',
+            'local_tm_pos_comps' => 'local_trainingmatrix_poscomp',
+            'local_tm_positions' => 'local_trainingmatrix_pos',
+            'local_tm_staff' => 'local_trainingmatrix_staff',
+        ];
+        foreach ($renames as $oldname => $newname) {
+            $table = new xmldb_table($oldname);
+            if ($dbman->table_exists($table) && !$dbman->table_exists($newname)) {
+                $dbman->rename_table($table, $newname);
+            }
+        }
+        upgrade_plugin_savepoint(true, 2026111301, 'local', 'trainingmatrix');
     }
 
     return true;

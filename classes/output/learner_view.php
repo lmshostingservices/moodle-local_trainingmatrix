@@ -5,6 +5,14 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Native Moodle presentation for read-only learner training.
@@ -15,8 +23,6 @@
  */
 
 namespace local_trainingmatrix\output;
-
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Stateless presentation shared by the learner page and dashboard block.
@@ -140,14 +146,18 @@ class learner_view {
         if (!$ordered) {
             $html .= \html_writer::tag('p', s(get_string('learner_empty', 'local_trainingmatrix')));
         } else {
-            $html .= \html_writer::tag('p', s(get_string('learner_priorityintro', 'local_trainingmatrix')),
-                ['class' => 'text-muted']);
+            $html .= \html_writer::tag(
+                'p',
+                s(get_string('learner_priorityintro', 'local_trainingmatrix')),
+                ['class' => 'text-muted']
+            );
             $html .= \html_writer::start_tag('ul', ['class' => 'list-unstyled']);
             foreach (array_slice($ordered, 0, 5) as $entry) {
                 $item = $entry['item'];
                 $html .= \html_writer::start_tag('li', ['class' => 'mb-3 pb-2 border-bottom']);
                 $html .= \html_writer::div(
-                    \html_writer::tag('strong', self::link($item, (string)$item['name'])));
+                    \html_writer::tag('strong', self::link($item, (string)$item['name']))
+                );
                 $html .= \html_writer::div(s($kinds[$item['kind']] ?? (string)$item['kind']) .
                     ' · ' . s((string)$item['source']), 'small text-muted');
                 $html .= \html_writer::div(s((string)$item['status']), 'small');
@@ -164,8 +174,11 @@ class learner_view {
             }
             $html .= \html_writer::end_tag('ul');
         }
-        $html .= \html_writer::link(new \moodle_url('/local/trainingmatrix/my.php'),
-            s(get_string('learner_viewall', 'local_trainingmatrix')), ['class' => 'btn btn-secondary btn-block']);
+        $html .= \html_writer::link(
+            new \moodle_url('/local/trainingmatrix/my.php'),
+            s(get_string('learner_viewall', 'local_trainingmatrix')),
+            ['class' => 'btn btn-secondary btn-block']
+        );
         return $html;
     }
 }

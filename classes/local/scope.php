@@ -31,7 +31,7 @@ use stdClass;
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class scope {
     /** @var string Sees every staff record. */
@@ -165,7 +165,7 @@ final class scope {
             return false;
         }
         [$sql, $params] = $this->staff_condition('s');
-        return $DB->record_exists_sql("SELECT 1 FROM {local_tm_staff} s WHERE $sql", $params);
+        return $DB->record_exists_sql("SELECT 1 FROM {local_trainingmatrix_staff} s WHERE $sql", $params);
     }
 
     /**
@@ -179,7 +179,7 @@ final class scope {
             return [];
         }
         if ($this->departmentids === null) {
-            $all = $DB->get_records('local_tm_departments', null, '', 'id, parentid, managerid');
+            $all = $DB->get_records('local_trainingmatrix_dept', null, '', 'id, parentid, managerid');
             $children = [];
             $queue = [];
             foreach ($all as $d) {
@@ -205,7 +205,7 @@ final class scope {
     }
 
     /**
-     * SQL condition on a local_tm_staff alias.
+     * SQL condition on a local_trainingmatrix_staff alias.
      *
      * @param string $alias staff table alias
      * @return array [sql, named params]
@@ -256,7 +256,7 @@ final class scope {
         }
         $alias = 'tmus' . (self::$seq + 1);
         [$sql, $params] = $this->staff_condition($alias);
-        return ["EXISTS (SELECT 1 FROM {local_tm_staff} {$alias} WHERE {$alias}.userid = {$useridcolumn} AND {$sql})",
+        return ["EXISTS (SELECT 1 FROM {local_trainingmatrix_staff} {$alias} WHERE {$alias}.userid = {$useridcolumn} AND {$sql})",
             $params];
     }
 
@@ -277,7 +277,7 @@ final class scope {
     /**
      * Is a staff record inside this scope?
      *
-     * @param stdClass $staff local_tm_staff record
+     * @param stdClass $staff local_trainingmatrix_staff record
      * @return bool
      */
     public function contains_staff(stdClass $staff): bool {
@@ -305,7 +305,7 @@ final class scope {
         if ($this->sees_all()) {
             return true;
         }
-        foreach ($DB->get_records('local_tm_staff', ['userid' => $userid]) as $staff) {
+        foreach ($DB->get_records('local_trainingmatrix_staff', ['userid' => $userid]) as $staff) {
             if ($this->contains_staff($staff)) {
                 return true;
             }
@@ -339,8 +339,12 @@ final class scope {
             return;
         }
         if (!self::for_user((int)$USER->id)->contains_user($userid)) {
-            throw new \required_capability_exception(\context_system::instance(), 'local/trainingmatrix:viewall',
-                'nopermissions', '');
+            throw new \required_capability_exception(
+                \context_system::instance(),
+                'local/trainingmatrix:viewall',
+                'nopermissions',
+                ''
+            );
         }
     }
 }

@@ -19,47 +19,49 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
 $action = optional_param('action', '', PARAM_ALPHA);
 $id = optional_param('id', 0, PARAM_INT);
-$filter_dept = optional_param('dept', 0, PARAM_INT);
-$filter_pos = optional_param('pos', 0, PARAM_INT);
-$filter_status = optional_param('status', '', PARAM_ALPHA);
+$filterdept = optional_param('dept', 0, PARAM_INT);
+$filterpos = optional_param('pos', 0, PARAM_INT);
+$filterstatus = optional_param('status', '', PARAM_ALPHA);
 $search = optional_param('search', '', PARAM_TEXT);
 
 echo html_writer::start_div('tm-staff tm-animate-in');
 
-// Header with add button
+// Header with add button.
 echo html_writer::start_div('tm-card-header', ['style' => 'padding: 0; margin-bottom: 24px; border: none;']);
-echo html_writer::tag('h3', 
-    html_writer::tag('i', '', ['class' => 'fa fa-users mr-2']) . 
-    get_string('staff', 'local_trainingmatrix'), 
+echo html_writer::tag(
+    'h3',
+    html_writer::tag('i', '', ['class' => 'fa fa-users mr-2']) .
+    get_string('staff', 'local_trainingmatrix'),
     ['class' => 'tm-card-title']
 );
 if (has_capability('local/trainingmatrix:assign', $context)) {
-    echo html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff', 'action' => 'add']),
+    echo html_writer::link(
+        new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff', 'action' => 'add']),
         html_writer::tag('i', '', ['class' => 'fa fa-plus mr-2']) . get_string('add_staff', 'local_trainingmatrix'),
         ['class' => 'tm-btn tm-btn-primary']
     );
 }
 echo html_writer::end_div();
 
-// Show form if adding/editing
+// Show form if adding/editing.
 if (($action === 'add' || $action === 'edit') && has_capability('local/trainingmatrix:assign', $context)) {
-    $staff = $action === 'edit' ? $DB->get_record('local_tm_staff', ['id' => $id], '*', MUST_EXIST) : null;
+    $staff = $action === 'edit' ? $DB->get_record('local_trainingmatrix_staff', ['id' => $id], '*', MUST_EXIST) : null;
     if ($staff && !$accessscope->contains_staff($staff)) {
         throw new required_capability_exception($context, 'local/trainingmatrix:viewall', 'nopermissions', '');
     }
     $tenancyon = (bool)\local_trainingmatrix\local\tenancy::clients();
     [$dsql, $dparams] = $scope->definition_condition('d');
-    $departments = $DB->get_records_sql("SELECT d.id, d.name, d.clientid FROM {local_tm_departments} d
+    $departments = $DB->get_records_sql("SELECT d.id, d.name, d.clientid FROM {local_trainingmatrix_dept} d
                                           WHERE $dsql ORDER BY d.name", $dparams);
     [$psql, $pparams] = $scope->definition_condition('p');
-    $positions = $DB->get_records_sql("SELECT p.id, p.name, p.departmentid, p.clientid FROM {local_tm_positions} p
+    $positions = $DB->get_records_sql("SELECT p.id, p.name, p.departmentid, p.clientid FROM {local_trainingmatrix_pos} p
                                         WHERE $psql ORDER BY p.name", $pparams);
     $useroptions = local_trainingmatrix_user_options($staff ? [$staff->userid, $staff->managerid] : []);
     // Label client-owned definitions so a shared one is never mistaken for a client's own.
@@ -68,48 +70,67 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
         return ($tenancyon && (int)$record->clientid > 0) ?
             $name . ' [' . \local_trainingmatrix\local\tenancy::name((int)$record->clientid) . ']' : $name;
     };
-    
+
     echo html_writer::start_div('tm-card');
     echo html_writer::start_div('tm-card-header');
-    echo html_writer::tag('h4', $action === 'edit' ? get_string('edit_staff', 'local_trainingmatrix') : get_string('add_staff', 'local_trainingmatrix'), ['class' => 'tm-card-title']);
+    echo html_writer::tag(
+        'h4',
+        $action === 'edit' ? get_string('edit_staff', 'local_trainingmatrix') : get_string('add_staff', 'local_trainingmatrix'),
+        ['class' => 'tm-card-title']
+    );
     echo html_writer::end_div();
     echo html_writer::start_div('tm-card-body');
-    
-    $formUrl = new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff', 'action' => 'save', 'id' => $id, 'sesskey' => sesskey()]);
-    echo html_writer::start_tag('form', ['method' => 'post', 'action' => $formUrl->out(false)]);
-    
-    // Two column layout
+
+    $formurl = new moodle_url(
+        '/local/trainingmatrix/index.php',
+        ['tab' => 'staff', 'action' => 'save', 'id' => $id, 'sesskey' => sesskey()]
+    );
+    echo html_writer::start_tag('form', ['method' => 'post', 'action' => $formurl->out(false)]);
+
+    // Two column layout.
     echo html_writer::start_div('', ['style' => 'display: grid; grid-template-columns: 1fr 1fr; gap: 24px;']);
-    
-    // Left column
+
+    // Left column.
     echo html_writer::start_div();
-    
-    // User selection
+
+    // User selection.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('staff_member', 'local_trainingmatrix') . ' *', ['class' => 'tm-form-label']);
-    $userOptions = ['' => get_string('select_user', 'local_trainingmatrix')];
-    $userOptions += $useroptions;
-    echo html_writer::select($userOptions, 'userid', $staff->userid ?? '', false, ['class' => 'tm-form-select', 'required' => 'required']);
+    $useroptions = ['' => get_string('select_user', 'local_trainingmatrix')];
+    $useroptions += $useroptions;
+    echo html_writer::select(
+        $useroptions,
+        'userid',
+        $staff->userid ?? '',
+        false,
+        ['class' => 'tm-form-select', 'required' => 'required']
+    );
     echo html_writer::end_div();
-    
-    // Position
+
+    // Position.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('position_name', 'local_trainingmatrix') . ' *', ['class' => 'tm-form-label']);
-    $posOptions = ['' => get_string('select_position', 'local_trainingmatrix')];
+    $posoptions = ['' => get_string('select_position', 'local_trainingmatrix')];
     foreach ($positions as $p) {
-        $posOptions[$p->id] = $deflabel($p);
+        $posoptions[$p->id] = $deflabel($p);
     }
-    echo html_writer::select($posOptions, 'positionid', $staff->positionid ?? '', false, ['class' => 'tm-form-select', 'required' => 'required']);
+    echo html_writer::select(
+        $posoptions,
+        'positionid',
+        $staff->positionid ?? '',
+        false,
+        ['class' => 'tm-form-select', 'required' => 'required']
+    );
     echo html_writer::end_div();
-    
-    // Department
+
+    // Department.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('departments', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
-    $deptOptions = ['' => get_string('select_department', 'local_trainingmatrix')];
+    $deptoptions = ['' => get_string('select_department', 'local_trainingmatrix')];
     foreach ($departments as $d) {
-        $deptOptions[$d->id] = $deflabel($d);
+        $deptoptions[$d->id] = $deflabel($d);
     }
-    echo html_writer::select($deptOptions, 'departmentid', $staff->departmentid ?? '', false, ['class' => 'tm-form-select']);
+    echo html_writer::select($deptoptions, 'departmentid', $staff->departmentid ?? '', false, ['class' => 'tm-form-select']);
     echo html_writer::end_div();
 
     // Client. Only admins choose it; a line manager's new staff inherit their scope's rules in the save action.
@@ -117,13 +138,18 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
         $defaultclient = $staff->clientid ?? ($clientfilter ?: 0);
         echo html_writer::start_div('tm-form-group');
         echo html_writer::tag('label', get_string('client', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
-        echo html_writer::select(\local_trainingmatrix\local\tenancy::staff_options(), 'clientid', $defaultclient, false,
-            ['class' => 'tm-form-select']);
+        echo html_writer::select(
+            \local_trainingmatrix\local\tenancy::staff_options(),
+            'clientid',
+            $defaultclient,
+            false,
+            ['class' => 'tm-form-select']
+        );
         echo html_writer::tag('div', get_string('client_staff_help', 'local_trainingmatrix'), ['class' => 'tm-muted small']);
         echo html_writer::end_div();
     }
-    
-    // Employee ID
+
+    // Employee ID.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('employee_id', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
     echo html_writer::empty_tag('input', [
@@ -134,13 +160,13 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
         'placeholder' => 'e.g. EMP001',
     ]);
     echo html_writer::end_div();
-    
-    echo html_writer::end_div(); // Left column
-    
-    // Right column
+
+    echo html_writer::end_div(); // Left column.
+
+    // Right column.
     echo html_writer::start_div();
-    
-    // Start Date
+
+    // Start Date.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('start_date', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
     echo html_writer::empty_tag('input', [
@@ -150,8 +176,8 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
         'value' => !empty($staff->startdate) ? userdate($staff->startdate, '%Y-%m-%d', 99, false) : '',
     ]);
     echo html_writer::end_div();
-    
-    // End Date
+
+    // End Date.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('end_date', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
     echo html_writer::empty_tag('input', [
@@ -161,55 +187,66 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
         'value' => !empty($staff->enddate) ? userdate($staff->enddate, '%Y-%m-%d', 99, false) : '',
     ]);
     echo html_writer::end_div();
-    
-    // Manager
+
+    // Manager.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('direct_manager', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
-    echo html_writer::select(['' => get_string('select_manager', 'local_trainingmatrix')] + $useroptions, 'managerid',
-        $staff->managerid ?? '', false, ['class' => 'tm-form-select']);
+    echo html_writer::select(
+        ['' => get_string('select_manager', 'local_trainingmatrix')] + $useroptions,
+        'managerid',
+        $staff->managerid ?? '',
+        false,
+        ['class' => 'tm-form-select']
+    );
     echo html_writer::end_div();
-    
-    // Status
+
+    // Status.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('staff_status', 'local_trainingmatrix'), ['class' => 'tm-form-label']);
-    $statusOptions = [
+    $statusoptions = [
         'active' => get_string('status_active', 'local_trainingmatrix'),
         'inactive' => get_string('status_inactive', 'local_trainingmatrix'),
         'terminated' => get_string('status_terminated', 'local_trainingmatrix'),
     ];
-    echo html_writer::select($statusOptions, 'status', $staff->status ?? 'active', false, ['class' => 'tm-form-select']);
+    echo html_writer::select($statusoptions, 'status', $staff->status ?? 'active', false, ['class' => 'tm-form-select']);
     echo html_writer::end_div();
-    
-    echo html_writer::end_div(); // Right column
-    echo html_writer::end_div(); // Grid
-    
-    // Buttons
+
+    echo html_writer::end_div(); // Right column.
+    echo html_writer::end_div(); // Grid.
+
+    // Buttons.
     echo html_writer::start_div('', ['style' => 'display: flex; gap: 12px; margin-top: 24px;']);
     echo html_writer::empty_tag('input', ['type' => 'submit', 'class' => 'tm-btn tm-btn-primary', 'value' => 'Save Staff Member']);
-    echo html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff']),
-        'Cancel', ['class' => 'tm-btn tm-btn-secondary']);
+    echo html_writer::link(
+        new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff']),
+        'Cancel',
+        ['class' => 'tm-btn tm-btn-secondary']
+    );
     echo html_writer::end_div();
-    
+
     echo html_writer::end_tag('form');
     echo html_writer::end_div();
     echo html_writer::end_div();
-    
 } else {
-    // Filters
+    // Filters.
     $tenancyon = (bool)\local_trainingmatrix\local\tenancy::clients();
     [$dsql, $dparams] = $scope->definition_condition('d');
-    $departments = $DB->get_records_sql("SELECT d.id, d.name FROM {local_tm_departments} d WHERE $dsql ORDER BY d.name",
-        $dparams);
+    $departments = $DB->get_records_sql(
+        "SELECT d.id, d.name FROM {local_trainingmatrix_dept} d WHERE $dsql ORDER BY d.name",
+        $dparams
+    );
     [$psql, $pparams] = $scope->definition_condition('p');
-    $positions = $DB->get_records_sql("SELECT p.id, p.name FROM {local_tm_positions} p WHERE $psql ORDER BY p.name",
-        $pparams);
-    
+    $positions = $DB->get_records_sql(
+        "SELECT p.id, p.name FROM {local_trainingmatrix_pos} p WHERE $psql ORDER BY p.name",
+        $pparams
+    );
+
     echo html_writer::start_tag('form', ['method' => 'get', 'action' => new moodle_url('/local/trainingmatrix/index.php')]);
     echo html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'tab', 'value' => 'staff']);
-    
+
     echo html_writer::start_div('tm-filters');
-    
-    // Search
+
+    // Search.
     echo html_writer::start_div('tm-search');
     echo html_writer::tag('i', '', ['class' => 'fa fa-search tm-search-icon']);
     echo html_writer::empty_tag('input', [
@@ -220,50 +257,50 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
         'placeholder' => 'Search staff...',
     ]);
     echo html_writer::end_div();
-    
-    // Department filter
-    $deptOptions = ['' => get_string('all_departments', 'local_trainingmatrix')];
+
+    // Department filter.
+    $deptoptions = ['' => get_string('all_departments', 'local_trainingmatrix')];
     foreach ($departments as $d) {
-        $deptOptions[$d->id] = format_string($d->name);
+        $deptoptions[$d->id] = format_string($d->name);
     }
-    echo html_writer::select($deptOptions, 'dept', $filter_dept, false, ['class' => 'tm-filter-select']);
-    
-    // Position filter
-    $posOptions = ['' => get_string('all_positions', 'local_trainingmatrix')];
+    echo html_writer::select($deptoptions, 'dept', $filterdept, false, ['class' => 'tm-filter-select']);
+
+    // Position filter.
+    $posoptions = ['' => get_string('all_positions', 'local_trainingmatrix')];
     foreach ($positions as $p) {
-        $posOptions[$p->id] = format_string($p->name);
+        $posoptions[$p->id] = format_string($p->name);
     }
-    echo html_writer::select($posOptions, 'pos', $filter_pos, false, ['class' => 'tm-filter-select']);
-    
-    // Status filter
-    $statusOptions = [
+    echo html_writer::select($posoptions, 'pos', $filterpos, false, ['class' => 'tm-filter-select']);
+
+    // Status filter.
+    $statusoptions = [
         '' => get_string('all_statuses', 'local_trainingmatrix'),
         'active' => get_string('status_active', 'local_trainingmatrix'),
         'inactive' => get_string('status_inactive', 'local_trainingmatrix'),
     ];
-    echo html_writer::select($statusOptions, 'status', $filter_status, false, ['class' => 'tm-filter-select']);
-    
+    echo html_writer::select($statusoptions, 'status', $filterstatus, false, ['class' => 'tm-filter-select']);
+
     echo html_writer::empty_tag('input', ['type' => 'submit', 'class' => 'tm-btn tm-btn-secondary', 'value' => 'Filter']);
-    
+
     echo html_writer::end_div();
     echo html_writer::end_tag('form');
-    
-    // Build query
+
+    // Build query.
     [$scopesql, $params] = $scope->staff_condition('s');
     $where = ["s.status <> :delstatus", $scopesql];
     $params['delstatus'] = 'deleted';
 
-    if ($filter_dept) {
+    if ($filterdept) {
         $where[] = 's.departmentid = :fdept';
-        $params['fdept'] = $filter_dept;
+        $params['fdept'] = $filterdept;
     }
-    if ($filter_pos) {
+    if ($filterpos) {
         $where[] = 's.positionid = :fpos';
-        $params['fpos'] = $filter_pos;
+        $params['fpos'] = $filterpos;
     }
-    if ($filter_status) {
+    if ($filterstatus) {
         $where[] = 's.status = :fstatus';
-        $params['fstatus'] = $filter_status;
+        $params['fstatus'] = $filterstatus;
     }
     if ($search) {
         $where[] = '(' . implode(' OR ', [
@@ -272,33 +309,37 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
             $DB->sql_like('u.email', ':s3', false, false),
             $DB->sql_like('s.employeeid', ':s4', false, false),
         ]) . ')';
-        $searchWild = '%' . $DB->sql_like_escape($search) . '%';
-        $params += ['s1' => $searchWild, 's2' => $searchWild, 's3' => $searchWild, 's4' => $searchWild];
+        $searchwild = '%' . $DB->sql_like_escape($search) . '%';
+        $params += ['s1' => $searchwild, 's2' => $searchwild, 's3' => $searchwild, 's4' => $searchwild];
     }
     $canassign = has_capability('local/trainingmatrix:assign', $context);
-    
-    $whereClause = implode(' AND ', $where);
-    
-    $staffList = $DB->get_records_sql("
-        SELECT s.*, 
+
+    $whereclause = implode(' AND ', $where);
+
+    $stafflist = $DB->get_records_sql("
+        SELECT s.*,
                u.firstname, u.lastname, u.email,
                p.name as position_name,
                d.name as department_name,
                m.id AS managerid2, m.firstname AS m_firstname, m.lastname AS m_lastname
-        FROM {local_tm_staff} s
+        FROM {local_trainingmatrix_staff} s
         JOIN {user} u ON u.id = s.userid
-        LEFT JOIN {local_tm_positions} p ON p.id = s.positionid
-        LEFT JOIN {local_tm_departments} d ON d.id = s.departmentid
+        LEFT JOIN {local_trainingmatrix_pos} p ON p.id = s.positionid
+        LEFT JOIN {local_trainingmatrix_dept} d ON d.id = s.departmentid
         LEFT JOIN {user} m ON m.id = s.managerid
-        WHERE $whereClause
+        WHERE $whereclause
         ORDER BY u.lastname, u.firstname
     ", $params);
-    
-    if (empty($staffList)) {
+
+    if (empty($stafflist)) {
         echo html_writer::start_div('tm-empty');
         echo html_writer::tag('i', '', ['class' => 'fa fa-users tm-empty-icon']);
         echo html_writer::tag('div', get_string('no_staff', 'local_trainingmatrix'), ['class' => 'tm-empty-title']);
-        echo html_writer::tag('div', 'Assign staff members to positions to track their training compliance.', ['class' => 'tm-empty-text']);
+        echo html_writer::tag(
+            'div',
+            'Assign staff members to positions to track their training compliance.',
+            ['class' => 'tm-empty-text']
+        );
         echo html_writer::end_div();
     } else {
         echo html_writer::start_div('tm-table-container');
@@ -318,14 +359,15 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
         echo html_writer::end_tag('tr');
         echo html_writer::end_tag('thead');
         echo html_writer::start_tag('tbody');
-        
-        foreach ($staffList as $staff) {
+
+        foreach ($stafflist as $staff) {
             $compliance = local_trainingmatrix_get_staff_compliance($staff->userid);
-            $compRate = $compliance ? $compliance['stats']['compliance_rate'] : 0;
-            $progressClass = $compRate >= 100 ? 'success' : ($compRate >= 70 ? 'warning' : 'danger');
-            
+            $comprate = $compliance ? $compliance['stats']['compliance_rate'] : 0;
+            $progressclass = $comprate >= 100 ? 'success' : ($comprate >= 70 ? 'warning' : 'danger');
+
             echo html_writer::start_tag('tr');
-            echo html_writer::tag('td', 
+            echo html_writer::tag(
+                'td',
                 html_writer::tag('strong', s($staff->firstname . ' ' . $staff->lastname)) .
                 html_writer::tag('div', s($staff->email), ['class' => 'tm-muted small']) .
                 ($staff->employeeid ? html_writer::tag('div', 'ID: ' . s($staff->employeeid), ['class' => 'tm-muted small']) : '')
@@ -336,34 +378,56 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
                 echo html_writer::tag('td', (int)$staff->clientid > 0 ?
                     \local_trainingmatrix\local\tenancy::name((int)$staff->clientid) : '-');
             }
-            echo html_writer::tag('td', $staff->startdate ? userdate($staff->startdate, get_string('strftimedate', 'langconfig')) : '-');
-            echo html_writer::tag('td',
+            echo html_writer::tag(
+                'td',
+                $staff->startdate ? userdate($staff->startdate, get_string('strftimedate', 'langconfig')) : '-'
+            );
+            echo html_writer::tag(
+                'td',
                 html_writer::start_div('', ['style' => 'display: flex; align-items: center; gap: 8px;']) .
                 html_writer::start_div('tm-progress') .
-                html_writer::div('', 'tm-progress-bar ' . $progressClass, ['style' => 'width: ' . $compRate . '%;']) .
+                html_writer::div('', 'tm-progress-bar ' . $progressclass, ['style' => 'width: ' . $comprate . '%;']) .
                 html_writer::end_div() .
-                html_writer::tag('span', $compRate . '%', ['class' => 'tm-progress-label']) .
+                html_writer::tag('span', $comprate . '%', ['class' => 'tm-progress-label']) .
                 html_writer::end_div()
             );
-            
-            $statusBadge = 'active';
-            if ($staff->status === 'inactive') $statusBadge = 'inactive';
-            if ($staff->status === 'terminated') $statusBadge = 'danger';
-            echo html_writer::tag('td', html_writer::tag('span', s(ucfirst($staff->status)), ['class' => 'tm-badge ' . $statusBadge]));
-            
-            echo html_writer::tag('td',
+
+            $statusbadge = 'active';
+            if ($staff->status === 'inactive') {
+                $statusbadge = 'inactive';
+            }
+            if ($staff->status === 'terminated') {
+                $statusbadge = 'danger';
+            }
+            echo html_writer::tag(
+                'td',
+                html_writer::tag('span', s(ucfirst($staff->status)), ['class' => 'tm-badge ' . $statusbadge])
+            );
+
+            echo html_writer::tag(
+                'td',
                 html_writer::start_div('tm-dropdown') .
-                html_writer::tag('button', html_writer::tag('i', '', ['class' => 'fa fa-ellipsis-v']), ['class' => 'tm-btn tm-btn-secondary tm-btn-icon tm-btn-sm']) .
+                html_writer::tag(
+                    'button',
+                    html_writer::tag('i', '', ['class' => 'fa fa-ellipsis-v']),
+                    ['class' => 'tm-btn tm-btn-secondary tm-btn-icon tm-btn-sm']
+                ) .
                 html_writer::start_div('tm-dropdown-menu') .
-                html_writer::link(new moodle_url('/local/trainingmatrix/staff.php', ['id' => $staff->id]),
+                html_writer::link(
+                    new moodle_url('/local/trainingmatrix/staff.php', ['id' => $staff->id]),
                     html_writer::tag('i', '', ['class' => 'fa fa-eye mr-2']) . 'View Details',
                     ['class' => 'tm-dropdown-item']
                 ) .
-                ($canassign ? html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff', 'action' => 'edit', 'id' => $staff->id]),
+                ($canassign ? html_writer::link(
+                    new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff', 'action' => 'edit', 'id' => $staff->id]),
                     html_writer::tag('i', '', ['class' => 'fa fa-edit mr-2']) . 'Edit',
                     ['class' => 'tm-dropdown-item']
                 ) .
-                html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff', 'action' => 'delete', 'id' => $staff->id, 'sesskey' => sesskey()]),
+                html_writer::link(
+                    new moodle_url(
+                        '/local/trainingmatrix/index.php',
+                        ['tab' => 'staff', 'action' => 'delete', 'id' => $staff->id, 'sesskey' => sesskey()]
+                    ),
                     html_writer::tag('i', '', ['class' => 'fa fa-trash mr-2']) . 'Delete',
                     ['class' => 'tm-dropdown-item danger', 'onclick' => "return confirm('Are you sure?');"]
                 ) : '') .
@@ -372,7 +436,7 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
             );
             echo html_writer::end_tag('tr');
         }
-        
+
         echo html_writer::end_tag('tbody');
         echo html_writer::end_tag('table');
         echo html_writer::end_div();

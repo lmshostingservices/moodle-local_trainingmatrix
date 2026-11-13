@@ -19,35 +19,36 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$reportType = optional_param('report', 'compliance', PARAM_ALPHA);
+$reporttype = optional_param('report', 'compliance', PARAM_ALPHA);
 $export = optional_param('export', '', PARAM_ALPHA);
 
 echo html_writer::start_div('tm-reports tm-animate-in');
 
-// Report type selector
+// Report type selector.
 echo html_writer::start_div('tm-card-header', ['style' => 'padding: 0; margin-bottom: 24px; border: none;']);
-echo html_writer::tag('h3', 
-    html_writer::tag('i', '', ['class' => 'fa fa-chart-bar mr-2']) . 
-    get_string('reports', 'local_trainingmatrix'), 
+echo html_writer::tag(
+    'h3',
+    html_writer::tag('i', '', ['class' => 'fa fa-chart-bar mr-2']) .
+    get_string('reports', 'local_trainingmatrix'),
     ['class' => 'tm-card-title']
 );
 echo html_writer::end_div();
 
-// Report tabs
-$reportTabs = [
+// Report tabs.
+$reporttabs = [
     'compliance' => ['icon' => 'fa-clipboard-check', 'label' => get_string('compliance_report', 'local_trainingmatrix')],
     'expiry' => ['icon' => 'fa-clock', 'label' => get_string('expiry_report', 'local_trainingmatrix')],
     'department' => ['icon' => 'fa-building', 'label' => get_string('department_report', 'local_trainingmatrix')],
 ];
 
 echo html_writer::start_div('', ['style' => 'display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap;']);
-foreach ($reportTabs as $key => $info) {
-    $active = $reportType === $key ? 'tm-btn-primary' : 'tm-btn-secondary';
+foreach ($reporttabs as $key => $info) {
+    $active = $reporttype === $key ? 'tm-btn-primary' : 'tm-btn-secondary';
     echo html_writer::link(
         new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'reports', 'report' => $key]),
         html_writer::tag('i', '', ['class' => 'fa ' . $info['icon'] . ' mr-2']) . $info['label'],
@@ -56,31 +57,32 @@ foreach ($reportTabs as $key => $info) {
 }
 echo html_writer::end_div();
 
-switch ($reportType) {
+switch ($reporttype) {
     case 'compliance':
-        // Full compliance matrix report
+        // Full compliance matrix report.
         echo html_writer::start_div('tm-card');
         echo html_writer::start_div('tm-card-header');
         echo html_writer::tag('h4', 'Staff Compliance Matrix', ['class' => 'tm-card-title']);
-        echo html_writer::link(new moodle_url('/local/trainingmatrix/export.php', ['report' => 'compliance', 'format' => 'csv']),
+        echo html_writer::link(
+            new moodle_url('/local/trainingmatrix/export.php', ['report' => 'compliance', 'format' => 'csv']),
             html_writer::tag('i', '', ['class' => 'fa fa-download mr-2']) . get_string('export_csv', 'local_trainingmatrix'),
             ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']
         );
         echo html_writer::end_div();
         echo html_writer::start_div('tm-card-body');
-        
+
         [$scopesql, $scopeparams] = $scope->staff_condition('s');
-        $staffList = $DB->get_records_sql("
+        $stafflist = $DB->get_records_sql("
             SELECT s.*, u.firstname, u.lastname, u.email, p.name as position_name, d.name as department_name
-            FROM {local_tm_staff} s
+            FROM {local_trainingmatrix_staff} s
             JOIN {user} u ON u.id = s.userid
-            LEFT JOIN {local_tm_positions} p ON p.id = s.positionid
-            LEFT JOIN {local_tm_departments} d ON d.id = s.departmentid
+            LEFT JOIN {local_trainingmatrix_pos} p ON p.id = s.positionid
+            LEFT JOIN {local_trainingmatrix_dept} d ON d.id = s.departmentid
             WHERE s.status = 'active' AND $scopesql
             ORDER BY d.name, u.lastname
         ", $scopeparams);
-        
-        if (empty($staffList)) {
+
+        if (empty($stafflist)) {
             echo html_writer::tag('p', 'No active staff members found.', ['class' => 'text-muted']);
         } else {
             echo html_writer::start_div('tm-table-container');
@@ -98,116 +100,124 @@ switch ($reportType) {
             echo html_writer::end_tag('tr');
             echo html_writer::end_tag('thead');
             echo html_writer::start_tag('tbody');
-            
-            foreach ($staffList as $staff) {
+
+            foreach ($stafflist as $staff) {
                 $compliance = local_trainingmatrix_get_staff_compliance($staff->userid);
-                if (!$compliance) continue;
-                
-                $stats = $compliance['stats'];
-                $compRate = $stats['compliance_rate'];
-                $progressClass = $compRate >= 100 ? 'success' : ($compRate >= 70 ? 'warning' : 'danger');
-                
-                $overallStatus = 'Compliant';
-                $overallBadge = 'completed';
-                if ($stats['expired'] > 0) {
-                    $overallStatus = 'Non-Compliant';
-                    $overallBadge = 'danger';
-                } else if ($stats['expiring_soon'] > 0) {
-                    $overallStatus = 'At Risk';
-                    $overallBadge = 'warning';
-                } else if ($compRate < 100) {
-                    $overallStatus = 'In Progress';
-                    $overallBadge = 'in_progress';
+                if (!$compliance) {
+                    continue;
                 }
-                
+
+                $stats = $compliance['stats'];
+                $comprate = $stats['compliance_rate'];
+                $progressclass = $comprate >= 100 ? 'success' : ($comprate >= 70 ? 'warning' : 'danger');
+
+                $overallstatus = 'Compliant';
+                $overallbadge = 'completed';
+                if ($stats['expired'] > 0) {
+                    $overallstatus = 'Non-Compliant';
+                    $overallbadge = 'danger';
+                } else if ($stats['expiring_soon'] > 0) {
+                    $overallstatus = 'At Risk';
+                    $overallbadge = 'warning';
+                } else if ($comprate < 100) {
+                    $overallstatus = 'In Progress';
+                    $overallbadge = 'in_progress';
+                }
+
                 echo html_writer::start_tag('tr');
-                echo html_writer::tag('td', 
+                echo html_writer::tag(
+                    'td',
                     html_writer::tag('strong', s($staff->firstname . ' ' . $staff->lastname)) .
                     html_writer::tag('div', s($staff->email), ['style' => 'color: var(--tm-gray-500); font-size: 12px;'])
                 );
                 echo html_writer::tag('td', $staff->position_name ? format_string($staff->position_name) : '-');
                 echo html_writer::tag('td', html_writer::tag('span', $stats['total'], ['class' => 'tm-badge info']));
                 echo html_writer::tag('td', html_writer::tag('span', $stats['completed'], ['class' => 'tm-badge completed']));
-                echo html_writer::tag('td', $stats['expiring_soon'] > 0 ? 
+                echo html_writer::tag('td', $stats['expiring_soon'] > 0 ?
                     html_writer::tag('span', $stats['expiring_soon'], ['class' => 'tm-badge warning']) : '-');
-                echo html_writer::tag('td', $stats['expired'] > 0 ? 
+                echo html_writer::tag('td', $stats['expired'] > 0 ?
                     html_writer::tag('span', $stats['expired'], ['class' => 'tm-badge danger']) : '-');
-                echo html_writer::tag('td',
+                echo html_writer::tag(
+                    'td',
                     html_writer::start_div('', ['style' => 'display: flex; align-items: center; gap: 8px;']) .
                     html_writer::start_div('tm-progress') .
-                    html_writer::div('', 'tm-progress-bar ' . $progressClass, ['style' => 'width: ' . $compRate . '%;']) .
+                    html_writer::div('', 'tm-progress-bar ' . $progressclass, ['style' => 'width: ' . $comprate . '%;']) .
                     html_writer::end_div() .
-                    html_writer::tag('span', $compRate . '%', ['class' => 'tm-progress-label']) .
+                    html_writer::tag('span', $comprate . '%', ['class' => 'tm-progress-label']) .
                     html_writer::end_div()
                 );
-                echo html_writer::tag('td', html_writer::tag('span', $overallStatus, ['class' => 'tm-badge ' . $overallBadge]));
+                echo html_writer::tag('td', html_writer::tag('span', $overallstatus, ['class' => 'tm-badge ' . $overallbadge]));
                 echo html_writer::end_tag('tr');
             }
-            
+
             echo html_writer::end_tag('tbody');
             echo html_writer::end_tag('table');
             echo html_writer::end_div();
         }
-        
+
         echo html_writer::end_div();
         echo html_writer::end_div();
         break;
-        
+
     case 'expiry':
-        // Expiry report
+        // Expiry report.
         echo html_writer::start_div('tm-card');
         echo html_writer::start_div('tm-card-header');
         echo html_writer::tag('h4', 'Training Expiry Report', ['class' => 'tm-card-title']);
         echo html_writer::end_div();
         echo html_writer::start_div('tm-card-body');
-        
+
         $now = time();
-        $thirtyDays = $now + (30 * 24 * 60 * 60);
-        $sixtyDays = $now + (60 * 24 * 60 * 60);
-        $ninetyDays = $now + (90 * 24 * 60 * 60);
-        
-        // Expired
+        $thirtydays = $now + (30 * 24 * 60 * 60);
+        $sixtydays = $now + (60 * 24 * 60 * 60);
+        $ninetydays = $now + (90 * 24 * 60 * 60);
+
+        // Expired.
         [$scopesql, $scopeparams] = $scope->user_condition('tc.userid');
         $expired = $DB->get_records_sql("
             SELECT tc.*, c.name as competency_name, c.code, u.firstname, u.lastname, u.email
-            FROM {local_tm_completions} tc
-            JOIN {local_tm_competencies} c ON c.id = tc.competencyid
+            FROM {local_trainingmatrix_compl} tc
+            JOIN {local_trainingmatrix_comp} c ON c.id = tc.competencyid
             JOIN {user} u ON u.id = tc.userid
             WHERE tc.status IN ('completed', 'expiring_soon', 'expired') AND tc.expirydate IS NOT NULL
               AND tc.expirydate < :now AND $scopesql
             ORDER BY tc.expirydate ASC
         ", ['now' => $now] + $scopeparams);
 
-        // Expiring soon (next 30 days)
+        // Expiring soon (next 30 days).
         [$scopesql, $scopeparams] = $scope->user_condition('tc.userid');
-        $expiringSoon = $DB->get_records_sql("
+        $expiringsoon = $DB->get_records_sql("
             SELECT tc.*, c.name as competency_name, c.code, u.firstname, u.lastname, u.email
-            FROM {local_tm_completions} tc
-            JOIN {local_tm_competencies} c ON c.id = tc.competencyid
+            FROM {local_trainingmatrix_compl} tc
+            JOIN {local_trainingmatrix_comp} c ON c.id = tc.competencyid
             JOIN {user} u ON u.id = tc.userid
             WHERE tc.status IN ('completed', 'expiring_soon', 'expired') AND tc.expirydate IS NOT NULL
               AND tc.expirydate BETWEEN :now AND :soon AND $scopesql
             ORDER BY tc.expirydate ASC
-        ", ['now' => $now, 'soon' => $thirtyDays] + $scopeparams);
-        
-        // Summary stats
+        ", ['now' => $now, 'soon' => $thirtydays] + $scopeparams);
+
+        // Summary stats.
         echo html_writer::start_div('tm-stats-grid', ['style' => 'margin-bottom: 24px;']);
-        
+
         echo html_writer::start_div('tm-stat-card danger');
         echo html_writer::tag('div', count($expired), ['class' => 'tm-stat-value']);
         echo html_writer::tag('div', 'Expired', ['class' => 'tm-stat-label']);
         echo html_writer::end_div();
-        
+
         echo html_writer::start_div('tm-stat-card warning');
-        echo html_writer::tag('div', count($expiringSoon), ['class' => 'tm-stat-value']);
+        echo html_writer::tag('div', count($expiringsoon), ['class' => 'tm-stat-value']);
         echo html_writer::tag('div', 'Expiring (30 days)', ['class' => 'tm-stat-label']);
         echo html_writer::end_div();
-        
+
         echo html_writer::end_div();
-        
-        // Expired table
+
+        // Expired table.
         if (!empty($expired)) {
-            echo html_writer::tag('h5', 'Expired Training (' . count($expired) . ')', ['style' => 'margin: 24px 0 12px; color: var(--tm-danger);']);
+            echo html_writer::tag(
+                'h5',
+                'Expired Training (' . count($expired) . ')',
+                ['style' => 'margin: 24px 0 12px; color: var(--tm-danger);']
+            );
             echo html_writer::start_div('tm-table-container');
             echo html_writer::start_tag('table', ['class' => 'tm-table']);
             echo html_writer::start_tag('thead');
@@ -220,26 +230,60 @@ switch ($reportType) {
             echo html_writer::end_tag('tr');
             echo html_writer::end_tag('thead');
             echo html_writer::start_tag('tbody');
-            
+
             foreach ($expired as $e) {
-                $daysOverdue = ceil(($now - $e->expirydate) / 86400);
+                $daysoverdue = ceil(($now - $e->expirydate) / 86400);
                 echo html_writer::start_tag('tr');
-                echo html_writer::tag('td', s($e->firstname . ' ' . $e->lastname) . html_writer::tag('div', s($e->email), ['style' => 'font-size: 12px; color: var(--tm-gray-500);']));
-                echo html_writer::tag('td', ($e->code ? html_writer::tag('span', s($e->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') . format_string($e->competency_name));
+                echo html_writer::tag(
+                    'td',
+                    s($e->firstname . ' ' . $e->lastname) . html_writer::tag(
+                        'div',
+                        s($e->email),
+                        ['style' => 'font-size: 12px; color: var(--tm-gray-500);']
+                    )
+                );
+                echo html_writer::tag(
+                    'td',
+                    ($e->code ? html_writer::tag(
+                        'span',
+                        s($e->code),
+                        ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']
+                    ) : '') . format_string($e->competency_name)
+                );
                 echo html_writer::tag('td', userdate($e->expirydate, get_string('strftimedate', 'langconfig')));
-                echo html_writer::tag('td', html_writer::tag('span', $daysOverdue . ' days', ['class' => 'tm-badge danger']));
-                echo html_writer::tag('td', html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'reports', 'report' => 'expiry', 'action' => 'remind', 'cid' => $e->id, 'sesskey' => sesskey()]), get_string('send_reminder', 'local_trainingmatrix'), ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']));
+                echo html_writer::tag('td', html_writer::tag('span', $daysoverdue . ' days', ['class' => 'tm-badge danger']));
+                echo html_writer::tag(
+                    'td',
+                    html_writer::link(
+                        new moodle_url(
+                            '/local/trainingmatrix/index.php',
+                            [
+                                'tab' => 'reports',
+                                'report' => 'expiry',
+                                'action' => 'remind',
+                                'cid' => $e->id,
+                                'sesskey' => sesskey(),
+                            ]
+                        ),
+                        get_string('send_reminder', 'local_trainingmatrix'),
+                        ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']
+                    )
+                );
                 echo html_writer::end_tag('tr');
             }
-            
+
             echo html_writer::end_tag('tbody');
             echo html_writer::end_tag('table');
             echo html_writer::end_div();
         }
-        
-        // Expiring soon table
-        if (!empty($expiringSoon)) {
-            echo html_writer::tag('h5', 'Expiring Within 30 Days (' . count($expiringSoon) . ')', ['style' => 'margin: 24px 0 12px; color: var(--tm-warning);']);
+
+        // Expiring soon table.
+        if (!empty($expiringsoon)) {
+            echo html_writer::tag(
+                'h5',
+                'Expiring Within 30 Days (' . count($expiringsoon) . ')',
+                ['style' => 'margin: 24px 0 12px; color: var(--tm-warning);']
+            );
             echo html_writer::start_div('tm-table-container');
             echo html_writer::start_tag('table', ['class' => 'tm-table']);
             echo html_writer::start_tag('thead');
@@ -252,51 +296,84 @@ switch ($reportType) {
             echo html_writer::end_tag('tr');
             echo html_writer::end_tag('thead');
             echo html_writer::start_tag('tbody');
-            
-            foreach ($expiringSoon as $e) {
-                $daysRemaining = ceil(($e->expirydate - $now) / 86400);
-                $badgeClass = $daysRemaining <= 7 ? 'danger' : 'warning';
+
+            foreach ($expiringsoon as $e) {
+                $daysremaining = ceil(($e->expirydate - $now) / 86400);
+                $badgeclass = $daysremaining <= 7 ? 'danger' : 'warning';
                 echo html_writer::start_tag('tr');
-                echo html_writer::tag('td', s($e->firstname . ' ' . $e->lastname) . html_writer::tag('div', s($e->email), ['style' => 'font-size: 12px; color: var(--tm-gray-500);']));
-                echo html_writer::tag('td', ($e->code ? html_writer::tag('span', s($e->code), ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']) : '') . format_string($e->competency_name));
+                echo html_writer::tag(
+                    'td',
+                    s($e->firstname . ' ' . $e->lastname) . html_writer::tag(
+                        'div',
+                        s($e->email),
+                        ['style' => 'font-size: 12px; color: var(--tm-gray-500);']
+                    )
+                );
+                echo html_writer::tag(
+                    'td',
+                    ($e->code ? html_writer::tag(
+                        'span',
+                        s($e->code),
+                        ['class' => 'tm-badge info', 'style' => 'margin-right: 8px;']
+                    ) : '') . format_string($e->competency_name)
+                );
                 echo html_writer::tag('td', userdate($e->expirydate, get_string('strftimedate', 'langconfig')));
-                echo html_writer::tag('td', html_writer::tag('span', $daysRemaining . ' days', ['class' => 'tm-badge ' . $badgeClass]));
-                echo html_writer::tag('td', html_writer::link(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'reports', 'report' => 'expiry', 'action' => 'remind', 'cid' => $e->id, 'sesskey' => sesskey()]), get_string('send_reminder', 'local_trainingmatrix'), ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']));
+                echo html_writer::tag(
+                    'td',
+                    html_writer::tag('span', $daysremaining . ' days', ['class' => 'tm-badge ' . $badgeclass])
+                );
+                echo html_writer::tag(
+                    'td',
+                    html_writer::link(
+                        new moodle_url(
+                            '/local/trainingmatrix/index.php',
+                            [
+                                'tab' => 'reports',
+                                'report' => 'expiry',
+                                'action' => 'remind',
+                                'cid' => $e->id,
+                                'sesskey' => sesskey(),
+                            ]
+                        ),
+                        get_string('send_reminder', 'local_trainingmatrix'),
+                        ['class' => 'tm-btn tm-btn-secondary tm-btn-sm']
+                    )
+                );
                 echo html_writer::end_tag('tr');
             }
-            
+
             echo html_writer::end_tag('tbody');
             echo html_writer::end_tag('table');
             echo html_writer::end_div();
         }
-        
-        if (empty($expired) && empty($expiringSoon)) {
+
+        if (empty($expired) && empty($expiringsoon)) {
             echo html_writer::start_div('tm-empty');
             echo html_writer::tag('i', '', ['class' => 'fa fa-check-circle tm-empty-icon', 'style' => 'color: var(--tm-success);']);
             echo html_writer::tag('div', 'All training is up to date!', ['class' => 'tm-empty-title']);
             echo html_writer::tag('div', 'No expired or expiring training found.', ['class' => 'tm-empty-text']);
             echo html_writer::end_div();
         }
-        
+
         echo html_writer::end_div();
         echo html_writer::end_div();
         break;
-        
+
     case 'department':
-        // Department summary report
+        // Department summary report.
         echo html_writer::start_div('tm-card');
         echo html_writer::start_div('tm-card-header');
         echo html_writer::tag('h4', 'Department Compliance Summary', ['class' => 'tm-card-title']);
         echo html_writer::end_div();
         echo html_writer::start_div('tm-card-body');
-        
+
         [$defsql, $defparams] = $scope->definition_condition('d');
         [$scopesql, $scopeparams] = $scope->staff_condition('s');
         $departments = $DB->get_records_sql("
             SELECT d.*,
-                   (SELECT COUNT(*) FROM {local_tm_staff} s
+                   (SELECT COUNT(*) FROM {local_trainingmatrix_staff} s
                      WHERE s.departmentid = d.id AND s.status = 'active' AND $scopesql) as staff_count
-            FROM {local_tm_departments} d
+            FROM {local_trainingmatrix_dept} d
             WHERE $defsql
             ORDER BY d.name
         ", $scopeparams + $defparams);
@@ -304,66 +381,79 @@ switch ($reportType) {
             // Managers and client views list only departments that hold someone they can see.
             $departments = array_filter($departments, static fn($d) => (int)$d->staff_count > 0);
         }
-        
+
         if (empty($departments)) {
             echo html_writer::tag('p', 'No departments configured.', ['class' => 'text-muted']);
         } else {
-            echo html_writer::start_div('', ['style' => 'display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;']);
-            
+            echo html_writer::start_div(
+                '',
+                ['style' => 'display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;']
+            );
+
             foreach ($departments as $dept) {
-                // Calculate department compliance
+                // Calculate department compliance.
                 [$deptscopesql, $deptscopeparams] = $scope->staff_condition('s');
-                $staffInDept = $DB->get_records_sql("SELECT s.* FROM {local_tm_staff} s
+                $staffindept = $DB->get_records_sql(
+                    "SELECT s.* FROM {local_trainingmatrix_staff} s
                     WHERE s.departmentid = :deptid AND s.status = 'active' AND $deptscopesql",
-                    ['deptid' => $dept->id] + $deptscopeparams);
-                $totalCompliance = 0;
-                $staffCount = 0;
+                    ['deptid' => $dept->id] + $deptscopeparams
+                );
+                $totalcompliance = 0;
+                $staffcount = 0;
                 $expired = 0;
-                
-                foreach ($staffInDept as $staff) {
+
+                foreach ($staffindept as $staff) {
                     $compliance = local_trainingmatrix_get_staff_compliance($staff->userid);
                     if ($compliance) {
-                        $totalCompliance += $compliance['stats']['compliance_rate'];
+                        $totalcompliance += $compliance['stats']['compliance_rate'];
                         $expired += $compliance['stats']['expired'];
-                        $staffCount++;
+                        $staffcount++;
                     }
                 }
-                
-                $avgCompliance = $staffCount > 0 ? round($totalCompliance / $staffCount) : 0;
-                $compClass = $avgCompliance >= 90 ? 'success' : ($avgCompliance >= 70 ? 'warning' : 'danger');
-                
-                echo html_writer::start_div('tm-card', ['style' => 'border-left: 4px solid var(--tm-' . $compClass . ');']);
+
+                $avgcompliance = $staffcount > 0 ? round($totalcompliance / $staffcount) : 0;
+                $compclass = $avgcompliance >= 90 ? 'success' : ($avgcompliance >= 70 ? 'warning' : 'danger');
+
+                echo html_writer::start_div('tm-card', ['style' => 'border-left: 4px solid var(--tm-' . $compclass . ');']);
                 echo html_writer::start_div('tm-card-body');
-                
+
                 echo html_writer::tag('h5', format_string($dept->name), ['style' => 'margin: 0 0 16px;']);
-                
+
                 echo html_writer::start_div('', ['style' => 'display: flex; justify-content: space-between; align-items: center;']);
                 echo html_writer::start_div();
                 echo html_writer::tag('div', $dept->staff_count, ['style' => 'font-size: 24px; font-weight: 700;']);
                 echo html_writer::tag('div', 'Staff Members', ['style' => 'font-size: 12px; color: var(--tm-gray-500);']);
                 echo html_writer::end_div();
-                
+
                 echo html_writer::start_div('', ['style' => 'text-align: right;']);
-                echo html_writer::tag('div', $avgCompliance . '%', ['style' => 'font-size: 24px; font-weight: 700; color: var(--tm-' . $compClass . ');']);
+                echo html_writer::tag(
+                    'div',
+                    $avgcompliance . '%',
+                    ['style' => 'font-size: 24px; font-weight: 700; color: var(--tm-' . $compclass . ');']
+                );
                 echo html_writer::tag('div', 'Avg Compliance', ['style' => 'font-size: 12px; color: var(--tm-gray-500);']);
                 echo html_writer::end_div();
                 echo html_writer::end_div();
-                
+
                 if ($expired > 0) {
-                    echo html_writer::tag('div', 
-                        html_writer::tag('i', '', ['class' => 'fa fa-exclamation-triangle mr-2']) . 
+                    echo html_writer::tag(
+                        'div',
+                        html_writer::tag('i', '', ['class' => 'fa fa-exclamation-triangle mr-2']) .
                         $expired . ' expired training items',
-                        ['style' => 'margin-top: 12px; padding: 8px 12px; background: rgba(239, 68, 68, 0.1); color: var(--tm-danger); border-radius: 6px; font-size: 13px;']
+                        [
+                            'style' => 'margin-top: 12px; padding: 8px 12px; background: rgba(239, 68, 68, 0.1); '
+                                . 'color: var(--tm-danger); border-radius: 6px; font-size: 13px;',
+                        ]
                     );
                 }
-                
+
                 echo html_writer::end_div();
                 echo html_writer::end_div();
             }
-            
+
             echo html_writer::end_div();
         }
-        
+
         echo html_writer::end_div();
         echo html_writer::end_div();
         break;

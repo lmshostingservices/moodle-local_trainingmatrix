@@ -19,7 +19,7 @@
  *
  * @package    local_trainingmatrix
  * @copyright  2026 LMS-Labs
- * @license    http://www.gnu.org/licenses/gpl-3.0.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -32,7 +32,8 @@ $importurl = new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'import
 if ($action === 'upload') {
     $importform = new \local_trainingmatrix\form\import_form(
         new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'import', 'action' => 'upload']),
-        ['clientid' => $clientfilter]);
+        ['clientid' => $clientfilter]
+    );
     if ($data = $importform->get_data()) {
         $iid = csv_import_reader::get_new_iid('local_trainingmatrix_staff');
         $reader = new csv_import_reader($iid, 'local_trainingmatrix_staff');
@@ -40,8 +41,12 @@ if ($action === 'upload') {
         $error = $reader->get_error();
         if ($error || !$count) {
             $reader->cleanup(true);
-            redirect($importurl, $error ?: get_string('import_err_empty', 'local_trainingmatrix'), null,
-                \core\output\notification::NOTIFY_ERROR);
+            redirect(
+                $importurl,
+                $error ?: get_string('import_err_empty', 'local_trainingmatrix'),
+                null,
+                \core\output\notification::NOTIFY_ERROR
+            );
         }
         redirect(new moodle_url($importurl, ['iid' => $iid, 'clientid' => (int)$data->clientid,
             'createmissing' => (int)!empty($data->createmissing)]));
@@ -51,8 +56,10 @@ if ($action === 'upload') {
 
 if ($action === 'confirm') {
     $iid = required_param('iid', PARAM_INT);
-    $importer = new \local_trainingmatrix\local\staff_import(optional_param('clientid', 0, PARAM_INT),
-        (bool)optional_param('createmissing', 0, PARAM_BOOL));
+    $importer = new \local_trainingmatrix\local\staff_import(
+        optional_param('clientid', 0, PARAM_INT),
+        (bool)optional_param('createmissing', 0, PARAM_BOOL)
+    );
     $reader = new csv_import_reader($iid, 'local_trainingmatrix_staff');
     $file = $importer->plan_file($reader);
     if ($file['errors']) {
@@ -81,8 +88,11 @@ if ($action === 'confirm') {
         \core\notification::warning(get_string('import_failedrows', 'local_trainingmatrix', (object)[
             'count' => count($problems), 'list' => s(implode(' | ', array_slice($problems, 0, 20)))]));
     }
-    redirect(new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff']),
-        get_string('import_done', 'local_trainingmatrix', (object)$counts), null,
+    redirect(
+        new moodle_url('/local/trainingmatrix/index.php', ['tab' => 'staff']),
+        get_string('import_done', 'local_trainingmatrix', (object)$counts),
+        null,
         $counts['create'] + $counts['update'] ? \core\output\notification::NOTIFY_SUCCESS :
-            \core\output\notification::NOTIFY_WARNING);
+        \core\output\notification::NOTIFY_WARNING
+    );
 }
