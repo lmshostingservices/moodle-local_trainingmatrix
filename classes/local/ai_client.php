@@ -240,6 +240,19 @@ final class ai_client {
         require_once($CFG->dirroot . '/local/trainingmatrix/lib.php');
         local_trainingmatrix_provision_positions([$positionid]);
 
+        // Client Portal (when installed) bills the client of the person who asked.
+        if (method_exists('\\local_clientportal\\api', 'record_lmslabs_call')) {
+            global $USER;
+            \local_clientportal\api::record_lmslabs_call(
+                (int)$USER->id,
+                (int)\context_system::instance()->id,
+                'local_trainingmatrix',
+                is_array($data) ? $data : [],
+                self::CREDITS_PER_POSITION,
+                'Competencies for a position'
+            );
+        }
+
         return [
             'ok' => true,
             'error' => '',
