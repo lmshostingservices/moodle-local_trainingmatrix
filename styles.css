@@ -1682,7 +1682,8 @@ html body .tmx[data-tmx-root] :is(.tmx-detail-note, .tmx-callout, .tmx-permissio
 }
 
 .tm-client-filter-wrap label {
-    color: rgba(255, 255, 255, 0.9);
+    color: inherit;
+    opacity: 0.9;
     font-weight: 600;
     margin: 0;
 }

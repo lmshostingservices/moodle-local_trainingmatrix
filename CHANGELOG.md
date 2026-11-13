@@ -12,6 +12,7 @@ All notable changes to this plugin are listed here.
 - Training cards adapt to narrow spaces with a small script instead of CSS container queries. They look the same at every width.
 - Card action links are marked as buttons, so themes keep their white text without forcing styles.
 - Tests that need Client Portal are skipped when it is not installed.
+- The Client label beside the client picker could not be read with the Premium SaaS theme; it now takes the header's text colour.
 
 ## [1.1.2] - 2026-11-13
 
