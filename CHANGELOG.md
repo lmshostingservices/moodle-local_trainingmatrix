@@ -2,6 +2,11 @@
 
 All notable changes to this plugin are listed here.
 
+## [1.1.4] - 2026-11-14
+
+### Fixed
+- Adding or editing a staff member: the Staff member and Direct manager lists were empty in 1.1.3. They list your site's users again.
+
 ## [1.1.3] - 2026-11-13
 
 ### Changed
