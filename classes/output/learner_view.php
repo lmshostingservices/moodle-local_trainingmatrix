@@ -50,6 +50,10 @@ class learner_view {
      */
     public static function notices(array $notices): string {
         global $OUTPUT;
+        // These are set-up messages about other plugins, so only people who manage the matrix see them.
+        if (!has_capability('local/trainingmatrix:manage', \context_system::instance())) {
+            return '';
+        }
         $html = '';
         foreach ($notices as $notice) {
             $html .= $OUTPUT->notification(s((string)$notice), 'info');
