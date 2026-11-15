@@ -96,10 +96,8 @@ if (($action === 'add' || $action === 'edit') && has_capability('local/trainingm
     // User selection.
     echo html_writer::start_div('tm-form-group');
     echo html_writer::tag('label', get_string('staff_member', 'local_trainingmatrix') . ' *', ['class' => 'tm-form-label']);
-    $useroptions = ['' => get_string('select_user', 'local_trainingmatrix')];
-    $useroptions += $useroptions;
     echo html_writer::select(
-        $useroptions,
+        ['' => get_string('select_user', 'local_trainingmatrix')] + $useroptions,
         'userid',
         $staff->userid ?? '',
         false,

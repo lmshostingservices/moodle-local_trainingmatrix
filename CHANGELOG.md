@@ -2,6 +2,16 @@
 
 All notable changes to this plugin are listed here.
 
+## [1.1.5] - 2026-11-15
+
+### Changed
+- AI credits for generating a client's own position's competencies are billed to that client in Client Portal, whoever clicked. Shared positions are billed to the client of the person who clicked, as before. Needs Client Portal 2.0.4 or later; with older versions billing works as before.
+
+## [1.1.4] - 2026-11-14
+
+### Fixed
+- Adding or editing a staff member: the Staff member and Direct manager lists were empty in 1.1.3. They list your site's users again.
+
 ## [1.1.3] - 2026-11-13
 
 ### Changed
