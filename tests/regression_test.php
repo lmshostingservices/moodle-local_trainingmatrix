@@ -141,6 +141,34 @@ final class regression_test extends \advanced_testcase {
     }
 
     /**
+     * Credits for a client's own position are billed to that client, whoever asked (needs Client Portal 2.0.4).
+     */
+    public function test_ai_credits_billed_to_the_positions_client(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $supported = class_exists(\local_clientportal\manager::class)
+            && (new \ReflectionMethod(\local_clientportal\api::class, 'record_lmslabs_call'))->getNumberOfParameters() >= 8;
+        if (!$supported) {
+            $this->markTestSkipped('Client Portal 2.0.4 or later is not installed.');
+        }
+        $this->setAdminUser();
+        set_config('siteid', 'site', 'local_trainingmatrix');
+        set_config('apikey', 'key', 'local_trainingmatrix');
+        $client = \local_clientportal\manager::save_client((object)['name' => 'Ridgeline', 'cohortid' => 0, 'active' => 1]);
+        $pos = $DB->insert_record('local_trainingmatrix_pos', (object)['name' => 'Haul truck operator', 'clientid' => $client]);
+        \curl::mock_response(json_encode(['creditsCharged' => 10, 'competencies' => [
+            ['name' => 'Pre-start checks', 'code' => 'PS1', 'category' => 'Safety', 'description' => 'Daily checks'],
+        ]]));
+        \curl::mock_response(json_encode(['credits' => 100]));
+        $result = (new local\ai_client())->generate((int)$pos);
+        $this->assertTrue($result['ok'], $result['error']);
+        // The site admin belongs to no client, yet the client that owns the position is billed.
+        $usage = $DB->get_record('local_clientportal_usage', ['component' => 'local_trainingmatrix'], '*', MUST_EXIST);
+        $this->assertEquals($client, $usage->clientid);
+        $this->assertEquals(10, $usage->quantity);
+    }
+
+    /**
      * User pickers always include the selected user, even beyond the listing limit.
      */
     public function test_user_options_include_selected(): void {
