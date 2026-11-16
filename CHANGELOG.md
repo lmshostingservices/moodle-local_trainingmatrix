@@ -2,6 +2,11 @@
 
 All notable changes to this plugin are listed here.
 
+## [1.1.6] - 2026-11-15
+
+### Fixed
+- Learners no longer see set-up messages on My Training, such as "Training Plan: unavailable (not installed or requires an upgrade)". Training managers still see them.
+
 ## [1.1.5] - 2026-11-15
 
 ### Changed

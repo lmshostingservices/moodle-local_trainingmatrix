@@ -171,4 +171,16 @@ final class learner_training_test extends \advanced_testcase {
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringContainsString('&lt;script&gt;', $html);
     }
+
+    /**
+     * Set-up messages are for training managers, not learners.
+     */
+    public function test_setup_notices_are_hidden_from_learners(): void {
+        $this->resetAfterTest();
+        $notices = ['Training Plan: unavailable (not installed or requires an upgrade).'];
+        $this->setUser($this->getDataGenerator()->create_user());
+        $this->assertSame('', \local_trainingmatrix\output\learner_view::notices($notices));
+        $this->setAdminUser();
+        $this->assertStringContainsString('Training Plan', \local_trainingmatrix\output\learner_view::notices($notices));
+    }
 }
