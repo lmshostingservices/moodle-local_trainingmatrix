@@ -20,6 +20,7 @@ defined('MOODLE_INTERNAL') || die();
 
 #[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_get_staff_compliance')]
 #[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_sync_course_completion')]
+#[\PHPUnit\Framework\Attributes\CoversFunction('local_trainingmatrix_status_for_expiry')]
 #[\PHPUnit\Framework\Attributes\CoversClass(\local_trainingmatrix\external\export_report::class)]
 /**
  * Regression coverage for completion status and exports.
@@ -29,6 +30,7 @@ defined('MOODLE_INTERNAL') || die();
  * @license https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers ::local_trainingmatrix_get_staff_compliance
  * @covers ::local_trainingmatrix_sync_course_completion
+ * @covers ::local_trainingmatrix_status_for_expiry
  * @covers \local_trainingmatrix\external\export_report
  */
 final class completion_regression_test extends \advanced_testcase {
@@ -77,6 +79,41 @@ final class completion_regression_test extends \advanced_testcase {
             ob_end_clean();
         }
         $this->assertEquals(2, $DB->count_records('local_trainingmatrix_compl', ['status' => 'expired']));
+    }
+
+    /**
+     * "Expiring soon" follows each course link's own warning period, not a fixed 30 days.
+     *
+     */
+    public function test_expiring_soon_uses_course_notify_days(): void {
+        global $DB, $CFG;
+        require_once($CFG->dirroot . '/local/trainingmatrix/lib.php');
+        $this->resetAfterTest();
+        $user = $this->getDataGenerator()->create_user();
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $position = $DB->insert_record('local_trainingmatrix_pos', (object)['name' => 'Warning period']);
+        $DB->insert_record('local_trainingmatrix_staff', (object)[
+            'userid' => $user->id, 'positionid' => $position, 'status' => 'active',
+        ]);
+        $competency = $DB->insert_record('local_trainingmatrix_comp', (object)['name' => 'First aid', 'code' => 'FA1']);
+        $DB->insert_record('local_trainingmatrix_poscomp', (object)['positionid' => $position, 'competencyid' => $competency]);
+        $DB->insert_record('local_trainingmatrix_compcrs', (object)[
+            'competencyid' => $competency, 'courseid' => $course->id, 'expirymonths' => 12, 'notifydays' => 60,
+        ]);
+        $id = $DB->insert_record('local_trainingmatrix_compl', (object)[
+            'userid' => $user->id, 'courseid' => $course->id, 'competencyid' => $competency,
+            'status' => 'completed', 'progress' => 100, 'expirydate' => time() + 45 * DAYSECS,
+        ]);
+        ob_start();
+        try {
+            (new \local_trainingmatrix\task\check_expiry())->execute();
+        } finally {
+            ob_end_clean();
+        }
+        $this->assertSame('expiring_soon', $DB->get_field('local_trainingmatrix_compl', 'status', ['id' => $id]));
+        $this->assertSame(1, local_trainingmatrix_get_staff_compliance($user->id)['stats']['expiring_soon']);
+        $this->assertSame('expiring_soon', local_trainingmatrix_status_for_expiry(time() + 45 * DAYSECS, time(), 60));
+        $this->assertSame('completed', local_trainingmatrix_status_for_expiry(time() + 45 * DAYSECS, time(), 30));
     }
 
     /**

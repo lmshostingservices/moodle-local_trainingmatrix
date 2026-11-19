@@ -2,6 +2,14 @@
 
 All notable changes to this plugin are listed here.
 
+## [1.1.7] - 2026-11-20
+
+### Fixed
+- "Expiring soon" now uses each course link's own "days before expiry to notify" setting. It was always 30 days.
+
+### Changed
+- When a Client Portal (2.3 or later) required-training rule covers a learner's course, Training Matrix no longer sends its own expiry email for that course, so learners get one set of reminders.
+
 ## [1.1.6] - 2026-11-15
 
 ### Fixed
