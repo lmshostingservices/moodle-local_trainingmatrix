@@ -356,6 +356,7 @@ function local_trainingmatrix_expiry_date(int $completed, int $months): ?int {
  *
  * @param int|null $expirydate
  * @param int $now
+ * @param int $notifydays days before expiry that count as expiring soon
  * @return string
  */
 function local_trainingmatrix_status_for_expiry(?int $expirydate, int $now, int $notifydays = 30): string {
