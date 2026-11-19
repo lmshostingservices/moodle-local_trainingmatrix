@@ -44,9 +44,7 @@ class check_expiry extends \core\task\scheduled_task {
         global $DB;
 
         $now = time();
-        $thirtydays = $now + (30 * 24 * 60 * 60);
 
-        // Update status for expired completions.
         $DB->execute("
             UPDATE {local_trainingmatrix_compl}
             SET status = 'expired', timemodified = ?
@@ -55,14 +53,23 @@ class check_expiry extends \core\task\scheduled_task {
               AND expirydate < ?
         ", [$now, $now]);
 
-        // Update status for expiring soon.
-        $DB->execute("
-            UPDATE {local_trainingmatrix_compl}
-            SET status = 'expiring_soon', timemodified = ?
-            WHERE status = 'completed'
-              AND expirydate IS NOT NULL
-              AND expirydate BETWEEN ? AND ?
-        ", [$now, $now, $thirtydays]);
+        // Expiring soon uses each course link's own "days before expiry to notify" (30 when the link has gone).
+        $soon = $DB->get_fieldset_sql("
+            SELECT tc.id
+              FROM {local_trainingmatrix_compl} tc
+         LEFT JOIN {local_trainingmatrix_compcrs} cc ON cc.competencyid = tc.competencyid AND cc.courseid = tc.courseid
+             WHERE tc.status = 'completed'
+               AND tc.expirydate IS NOT NULL
+               AND tc.expirydate >= ?
+               AND tc.expirydate <= ? + COALESCE(cc.notifydays, 30) * 86400
+        ", [$now, $now]);
+        foreach (array_chunk($soon, 500) as $ids) {
+            [$in, $params] = $DB->get_in_or_equal($ids);
+            $DB->execute(
+                "UPDATE {local_trainingmatrix_compl} SET status = 'expiring_soon', timemodified = ? WHERE id $in",
+                array_merge([$now], $params)
+            );
+        }
 
         mtrace('Training expiry status check completed.');
     }

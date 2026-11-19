@@ -81,7 +81,7 @@ class sync_completions extends \core\task\scheduled_task {
                         'courseid' => $cc->courseid,
                     ]);
 
-                    $status = local_trainingmatrix_status_for_expiry($expirydate, $now);
+                    $status = local_trainingmatrix_status_for_expiry($expirydate, $now, (int)$cc->notifydays);
 
                     if ($tmcompletion) {
                         // Update existing.

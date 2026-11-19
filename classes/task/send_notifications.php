@@ -79,6 +79,13 @@ class send_notifications extends \core\task\scheduled_task {
                 if ($DB->get_field('local_trainingmatrix_compl', 'notified', ['id' => $tc->id])) {
                     continue;
                 }
+                // Client Portal runs reminders for courses its required-training rules cover.
+                if (
+                    class_exists(\local_clientportal\compliance\rules::class)
+                    && \local_clientportal\compliance\rules::covers((int)$tc->userid, (int)$tc->courseid)
+                ) {
+                    continue;
+                }
                 $daysuntilexpiry = ceil(($tc->expirydate - $now) / 86400);
 
                 $user = \core_user::get_user($tc->userid, '*', MUST_EXIST);

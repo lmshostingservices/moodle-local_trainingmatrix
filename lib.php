@@ -154,7 +154,6 @@ function local_trainingmatrix_get_staff_compliance($userid) {
     ];
 
     $now = time();
-    $soonthreshold = $now + (30 * 24 * 60 * 60);
 
     foreach ($requiredcomps as &$comp) {
         $comp->completion = $completionsbycomp[$comp->competencyid] ?? null;
@@ -170,7 +169,10 @@ function local_trainingmatrix_get_staff_compliance($userid) {
                 if ($comp->completion->expirydate && $comp->completion->expirydate < $now) {
                     $comp->status = 'expired';
                     $stats['expired']++;
-                } else if ($comp->completion->expirydate && $comp->completion->expirydate < $soonthreshold) {
+                } else if (
+                    $comp->completion->expirydate && $comp->completion->expirydate < $now + DAYSECS *
+                        local_trainingmatrix_notify_days((int)$comp->completion->competencyid, (int)$comp->completion->courseid)
+                ) {
                     $comp->status = 'expiring_soon';
                     $stats['expiring_soon']++;
                     $stats['completed']++;
@@ -354,16 +356,37 @@ function local_trainingmatrix_expiry_date(int $completed, int $months): ?int {
  *
  * @param int|null $expirydate
  * @param int $now
+ * @param int $notifydays days before expiry that count as expiring soon
  * @return string
  */
-function local_trainingmatrix_status_for_expiry(?int $expirydate, int $now): string {
+function local_trainingmatrix_status_for_expiry(?int $expirydate, int $now, int $notifydays = 30): string {
     if ($expirydate === null) {
         return 'completed';
     }
     if ($expirydate < $now) {
         return 'expired';
     }
-    return $expirydate < $now + 30 * DAYSECS ? 'expiring_soon' : 'completed';
+    return $expirydate < $now + max(0, $notifydays) * DAYSECS ? 'expiring_soon' : 'completed';
+}
+
+/**
+ * How many days before expiry a competency gained through a course counts as "expiring soon": the course link's
+ * "days before expiry to notify" setting, or 30 when the link has gone.
+ *
+ * @param int $competencyid
+ * @param int $courseid
+ * @return int
+ */
+function local_trainingmatrix_notify_days(int $competencyid, int $courseid): int {
+    global $DB;
+    static $cache = [];
+    $key = $competencyid . '-' . $courseid;
+    if (!array_key_exists($key, $cache)) {
+        $days = $DB->get_field('local_trainingmatrix_compcrs', 'MAX(notifydays)', ['competencyid' => $competencyid,
+            'courseid' => $courseid]);
+        $cache[$key] = $days === false || $days === null ? 30 : (int)$days;
+    }
+    return $cache[$key];
 }
 
 /**
@@ -411,7 +434,7 @@ function local_trainingmatrix_sync_course_completion($courseid, $userid) {
         $record->courseid = $courseid;
         $record->completiondate = $completion->timecompleted;
         $record->expirydate = $expirydate;
-        $record->status = local_trainingmatrix_status_for_expiry($expirydate, $now);
+        $record->status = local_trainingmatrix_status_for_expiry($expirydate, $now, (int)$compcourse->notifydays);
         $record->progress = 100;
         $record->timemodified = $now;
         if ($existing) {
