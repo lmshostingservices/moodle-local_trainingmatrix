@@ -24,6 +24,8 @@ use local_trainingmatrix\local\byok;
  * @package    local_trainingmatrix
  * @copyright  2026 LMS Hosting Services
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_trainingmatrix\local\byok
+ * @covers     \local_trainingmatrix\local\ai_client
  */
 #[\PHPUnit\Framework\Attributes\CoversClass(byok::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(local\ai_client::class)]
