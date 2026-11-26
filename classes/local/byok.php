@@ -62,20 +62,24 @@ final class byok {
         \core_php_time_limit::raise(300);
         $prompt = trim($prompt);
         if ($prompt === '' || \core_text::strlen($prompt) > 24000) {
-            return ['ok' => false, 'error' => 'INVALID_INPUT', 'message' => get_string('ai_generationfailed', 'local_trainingmatrix')];
+            return ['ok' => false, 'error' => 'INVALID_INPUT', 'message' => get_string('ai_generationfailed', 'local_training' .
+                'matrix')];
         }
         try {
             $text = self::ai(self::SYSTEM, $prompt, 2000, 0.7);
         } catch (\Throwable $e) {
             return ['ok' => false, 'error' => 'PROVIDER_FAILED', 'message' => self::message($e)];
         }
-        $text = preg_replace('/^```(?:json)?\s*\n([\s\S]*?)\n```$/i', '$1', trim($text));
+        $text = preg_replace('/^\x60{3}(?:json)?\s*\n([\s\S]*?)\n\x60{3}$/i', '$1', trim($text));
         $output = json_decode($text, true);
         if (!self::valid($output) || strlen(json_encode($output)) > 65536) {
             return ['ok' => false, 'error' => 'INVALID_PROVIDER_RESULT',
-                'message' => get_string('byok_failed', 'local_trainingmatrix', get_string('byok_invalid', 'local_trainingmatrix'))];
+                'message' => get_string('byok_failed', 'local_trainingmatrix', get_string(
+                    'byok_invalid',
+                    'local_trainingmatrix'
+                ))];
         }
-        $competencies = array_map(function($c) {
+        $competencies = array_map(function ($c) {
             return ['name' => trim($c['name']), 'code' => trim($c['code']), 'category' => $c['category'],
                 'description' => trim($c['description']), 'mandatory' => $c['mandatory']];
         }, $output);
@@ -89,11 +93,13 @@ final class byok {
      * @return bool
      */
     public static function valid($items): bool {
-        if (!is_array($items) || ($items !== [] && array_keys($items) !== range(0, count($items) - 1))
-                || count($items) < 1 || count($items) > 20) {
+        if (
+            !is_array($items) || ($items !== [] && array_keys($items) !== range(0, count($items) - 1))
+                || count($items) < 1 || count($items) > 20
+        ) {
             return false;
         }
-        $text = function($v, int $max): bool {
+        $text = function ($v, int $max): bool {
             if (!is_string($v)) {
                 return false;
             }
@@ -103,9 +109,11 @@ final class byok {
         $codes = [];
         $names = [];
         foreach ($items as $c) {
-            if (!is_array($c) || !$text($c['name'] ?? null, 255) || !$text($c['code'] ?? null, 100)
+            if (
+                !is_array($c) || !$text($c['name'] ?? null, 255) || !$text($c['code'] ?? null, 100)
                     || !$text($c['description'] ?? null, 4000) || !is_bool($c['mandatory'] ?? null)
-                    || !in_array($c['category'] ?? null, self::CATEGORIES, true)) {
+                    || !in_array($c['category'] ?? null, self::CATEGORIES, true)
+            ) {
                 return false;
             }
             $codes[\core_text::strtolower(trim($c['code']))] = true;

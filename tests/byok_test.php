@@ -28,6 +28,9 @@ use local_trainingmatrix\local\byok;
 #[\PHPUnit\Framework\Attributes\CoversClass(byok::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(local\ai_client::class)]
 final class byok_test extends \advanced_testcase {
+    /** @var string A Markdown code fence (three backticks). */
+    private const FENCE = "\x60\x60\x60";
+
     /** @var array Requests the mocked provider received. */
     protected $requests = [];
 
@@ -45,7 +48,7 @@ final class byok_test extends \advanced_testcase {
         set_config('testpublickey', base64_encode(sodium_crypto_sign_publickey($pair)), 'local_aiconfig');
         $payload = json_encode(['v' => 1, 'id' => 'lic_t', 'site' => \local_aiconfig\byok\licence::site_host(),
             'plan' => 'pro', 'byok' => true, 'products' => ['*'], 'sub' => 'sub_t', 'exp' => time() + DAYSECS]);
-        $b64 = function(string $s): string {
+        $b64 = function (string $s): string {
             return rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
         };
         set_config('licencekey', $b64($payload) . '.' .
@@ -70,7 +73,7 @@ final class byok_test extends \advanced_testcase {
      */
     protected function answer(?string $answer): void {
         $this->requests = [];
-        $GLOBALS['local_aiconfig_byok_mock'] = function($url, $headers, $body) use ($answer) {
+        $GLOBALS['local_aiconfig_byok_mock'] = function ($url, $headers, $body) use ($answer) {
             $this->requests[] = $body;
             if ($answer === null) {
                 throw new \moodle_exception('byok_providererror', 'local_aiconfig', '', 'Overloaded');
@@ -83,11 +86,12 @@ final class byok_test extends \advanced_testcase {
         global $DB;
         $pos = $DB->insert_record('local_trainingmatrix_pos', (object)['name' => 'Haul truck operator',
             'description' => '<p>Operates haul trucks on the Pilbara run.</p>']);
-        $this->answer("```json\n" . json_encode([
-            ['name' => 'Pre-start checks', 'code' => 'PS1', 'category' => 'Safety', 'description' => 'Daily checks', 'mandatory' => true],
+        $this->answer(self::FENCE . "json\n" . json_encode([
+            ['name' => 'Pre-start checks', 'code' => 'PS1', 'category' => 'Safety', 'description' => 'Daily checks',
+                'mandatory' => true],
             ['name' => 'Fatigue management', 'code' => 'FM1', 'category' => 'Compliance', 'description' => 'Manage fatigue',
                 'mandatory' => false],
-        ]) . "\n```");
+        ]) . "\n" . self::FENCE);
         $client = new local\ai_client();
         $this->assertTrue($client->is_configured());
         $this->assertSame(-1, $client->get_credits()['credits']);
