@@ -67,6 +67,9 @@ class provider implements
             ['managerid' => 'privacy:metadata:field'],
             'privacy:metadata:local_trainingmatrix_dept'
         );
+        $collection->add_external_location_link('byok_aiprovider', [
+            'content' => 'privacy:metadata:byok_aiprovider:content',
+        ], 'privacy:metadata:byok_aiprovider');
         return $collection;
     }
 

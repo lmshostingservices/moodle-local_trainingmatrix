@@ -2,6 +2,11 @@
 
 All notable changes to this plugin are listed here.
 
+## [1.2.0] - 2026-11-26
+
+### Added
+- Bring your own AI. When the site's AI Grader Central Config (1.1.0 or later) has a Bring your own AI licence and text is set to the site's own key or the Moodle AI subsystem, "AI generate competencies" runs on that AI instead of LMS Labs credits. It uses the same prompt, settings and checks on the answer as the LMS Labs service. The confirmation says no credits are used, and no credit figures are shown afterwards.
+
 ## [1.1.7] - 2026-11-20
 
 ### Fixed

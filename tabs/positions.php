@@ -46,10 +46,13 @@ echo html_writer::end_div();
 
 // AI Generation Scripts.
 $creditsperposition = \local_trainingmatrix\local\ai_client::CREDITS_PER_POSITION;
+$confirmgenerate = (new \local_trainingmatrix\local\ai_client())->uses_own_ai()
+    ? get_string('confirm_ai_generate_byok', 'local_trainingmatrix')
+    : get_string('confirm_ai_generate', 'local_trainingmatrix', $creditsperposition);
 $PAGE->requires->js_amd_inline("
 require(['jquery'], function ($) {
     window.tmGenerateCompetencies = function (positionId) {
-        if (!confirm(" . json_encode(get_string('confirm_ai_generate', 'local_trainingmatrix', $creditsperposition)) . ")) {
+        if (!confirm(" . json_encode($confirmgenerate) . ")) {
             return;
         }
 
@@ -77,8 +80,10 @@ require(['jquery'], function ($) {
                     if (response.linked && response.linked.length > 0) {
                         msg += '\\n\\nLinked existing: ' + response.linked.join(', ');
                     }
-                    msg += '\\n\\nCredits used: ' + response.credits_used;
-                    msg += '\\nCredits remaining: ' + response.credits_remaining;
+                    if (response.credits_used) {
+                        msg += '\\n\\nCredits used: ' + response.credits_used;
+                        msg += '\\nCredits remaining: ' + response.credits_remaining;
+                    }
                     alert(msg);
                     location.reload();
                 } else {
