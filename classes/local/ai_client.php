@@ -36,6 +36,8 @@ final class ai_client {
     private $siteid;
     /** @var string */
     private $apikey;
+    /** @var bool Bring your own AI: generate on the site's own AI instead of LMS Labs credits. */
+    private $byok;
 
     /**
      * Resolve credentials: local_aiconfig first, then plugin settings.
@@ -65,6 +67,16 @@ final class ai_client {
         }
         $this->siteid = $siteid;
         $this->apikey = $apikey;
+        $this->byok = byok::enabled();
+    }
+
+    /**
+     * Whether competencies are generated on the site's own AI (Bring your own AI).
+     *
+     * @return bool
+     */
+    public function uses_own_ai(): bool {
+        return $this->byok;
     }
 
     /**
@@ -73,7 +85,7 @@ final class ai_client {
      * @return bool
      */
     public function is_configured(): bool {
-        return $this->siteid !== '' && $this->apikey !== '';
+        return $this->byok || ($this->siteid !== '' && $this->apikey !== '');
     }
 
     /**
@@ -82,6 +94,9 @@ final class ai_client {
      * @return array ['ok' => bool, 'credits' => int|null, 'error' => string]
      */
     public function get_credits(): array {
+        if ($this->byok) {
+            return ['ok' => true, 'credits' => -1, 'error' => '', 'byok' => true];
+        }
         if (!$this->is_configured()) {
             return ['ok' => false, 'credits' => null, 'error' => get_string('plugin_not_configured', 'local_trainingmatrix')];
         }
@@ -162,15 +177,20 @@ final class ai_client {
             'action' => 'generate_competencies',
             'credits' => self::CREDITS_PER_POSITION,
         ];
-        $curl = new \curl();
-        $curl->setopt(['CURLOPT_TIMEOUT' => 120, 'CURLOPT_SSL_VERIFYPEER' => true]);
-        $curl->setHeader(['Content-Type: application/json', 'X-Api-Key: ' . $this->apikey]);
-        $response = $curl->post($this->apibase . '/api/training-matrix/generate', json_encode($payload));
-        if ($curl->error) {
-            return $fail(get_string('ai_generationfailed', 'local_trainingmatrix') . ' ' . s($curl->error));
+        if ($this->byok) {
+            $data = byok::generate($prompt);
+            $httpcode = !empty($data['ok']) ? 200 : 502;
+        } else {
+            $curl = new \curl();
+            $curl->setopt(['CURLOPT_TIMEOUT' => 120, 'CURLOPT_SSL_VERIFYPEER' => true]);
+            $curl->setHeader(['Content-Type: application/json', 'X-Api-Key: ' . $this->apikey]);
+            $response = $curl->post($this->apibase . '/api/training-matrix/generate', json_encode($payload));
+            if ($curl->error) {
+                return $fail(get_string('ai_generationfailed', 'local_trainingmatrix') . ' ' . s($curl->error));
+            }
+            $httpcode = (int)($curl->info['http_code'] ?? 0);
+            $data = json_decode((string)$response, true);
         }
-        $httpcode = (int)($curl->info['http_code'] ?? 0);
-        $data = json_decode((string)$response, true);
         if (
             ($httpcode !== 0 && ($httpcode < 200 || $httpcode >= 300)) || !is_array($data) ||
                 !isset($data['competencies']) ||
@@ -252,7 +272,7 @@ final class ai_client {
 
         // Client Portal (when installed) bills the credits. A client's own position is billed to that client,
         // whoever asked; a shared position is billed to the client of the person who asked.
-        if (method_exists('\\local_clientportal\\api', 'record_lmslabs_call')) {
+        if (!$this->byok && method_exists('\\local_clientportal\\api', 'record_lmslabs_call')) {
             global $USER;
             $args = [
                 (int)$USER->id,
@@ -276,9 +296,10 @@ final class ai_client {
             'error' => '',
             'created' => $created,
             'linked' => $linked,
-            'credits_used' => self::CREDITS_PER_POSITION,
-            'credits_remaining' => isset($data['credits_remaining']) ? (int)$data['credits_remaining'] :
-                ($available === -1 ? -1 : $available - self::CREDITS_PER_POSITION),
+            'credits_used' => $this->byok ? 0 : self::CREDITS_PER_POSITION,
+            'credits_remaining' => $this->byok ? -1 : (isset($data['credits_remaining']) ? (int)$data['credits_remaining'] :
+                ($available === -1 ? -1 : $available - self::CREDITS_PER_POSITION)),
+            'byok' => $this->byok,
         ];
     }
 }
